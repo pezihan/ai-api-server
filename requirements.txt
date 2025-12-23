@@ -6,3 +6,9 @@ pika
 pyjwt
 flask-restx
 huggingface_hub
+requests
+pillow
+torch>=2.0.0+cu118
+torchvision>=0.15.0+cu118
+torchaudio>=2.0.0+cu118
+diffusers
