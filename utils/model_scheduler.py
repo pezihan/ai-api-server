@@ -1,11 +1,15 @@
 import torch
 import os
 import gc
+import sys
 from utils.logger import logger
 from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
 from transformers import Qwen2_5_VLForConditionalGeneration
 import math
-from ..LightX2V.lightx2v import LightX2VPipeline
+
+# 将LightX2V目录添加到Python路径
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
+from lightx2v import LightX2VPipeline
 
 class ModelScheduler:
     """模型调度器，管理qwen和wan模型的加载和卸载，避免显存溢出"""
