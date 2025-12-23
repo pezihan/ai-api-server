@@ -5,3 +5,4 @@ redis
 pika
 pyjwt
 flask-restx
+huggingface_hub
