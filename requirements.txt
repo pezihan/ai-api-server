@@ -13,4 +13,4 @@ pillow
 # torchvision>=0.15.0
 # torchaudio>=2.0.0
 # pip install torch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 --index-url https://download.pytorch.org/whl/cu118
-diffusers
+git+https://github.com/huggingface/diffusers
