@@ -120,12 +120,12 @@ class ModelScheduler:
                 scheduler=scheduler
             )
             # 加载Lightning LoRA
-            pipe.load_lora_weights(
-                "./Qwen-Image-Edit-Remove-Clothes",
-                weight_name="qwen-edit-remove-clothes.safetensors",
-                adapter_name="clothes",
-                scale=1.0
-            )
+            # pipe.load_lora_weights(
+            #     "./Qwen-Image-Edit-Remove-Clothes",
+            #     weight_name="qwen-edit-remove-clothes.safetensors",
+            #     adapter_name="clothes",
+            #     scale=1.0
+            # )
         else:
             pipe = QwenImageEditPlusPipeline.from_pretrained(
                 model_path,
@@ -148,7 +148,7 @@ class ModelScheduler:
     
     def _load_wan_model(self, **kwargs):
         """加载wan视频生成模型"""
-        from lightx2v import LightX2VPipeline
+        from ..LightX2V.lightx2v import LightX2VPipeline
         
         model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
         model_cls = kwargs.get('model_cls', "wan2.2_moe")
