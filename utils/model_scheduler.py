@@ -104,9 +104,9 @@ class ModelScheduler:
         from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
         from transformers import Qwen2_5_VLForConditionalGeneration
         import math
-        
+
         cpu_offload = self.is_cpu_offload_enabled_image()
-        model_path = kwargs.get('model_path', "ovedrive/Qwen-Image-Edit-2509-4bit")
+        model_path = kwargs.get('model_path', "Qwen/Qwen-Image-Edit-2511")
         max_side_length = kwargs.get('max_side_length', 896)
         use_lighting = kwargs.get('use_lighting', False)
         
