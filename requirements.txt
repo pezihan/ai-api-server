@@ -8,7 +8,9 @@ flask-restx
 huggingface_hub
 requests
 pillow
-torch==2.0.0+cu118
-torchvision==0.15.0+cu118
-torchaudio==2.0.0+cu118
+# 注意：GPU版本的PyTorch需要从官方仓库安装
+# torch>=2.0.0
+# torchvision>=0.15.0
+# torchaudio>=2.0.0
+# pip install torch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 --index-url https://download.pytorch.org/whl/cu118
 diffusers
