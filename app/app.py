@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from flask_cors import CORS
 from flask_restx import Api
 from config.config import config
@@ -45,22 +45,22 @@ def log_request_info():
 def handle_exception(e):
     """全局异常处理"""
     log_error(e, "FlaskApp", f"Path: {request.path}, Method: {request.method}")
-    return jsonify({
+    return {
         'code': 500,
         'msg': '服务器内部错误',
         'data': None
-    }), 200
+    }, 200
 
 # 404错误处理
 @app.errorhandler(404)
 def handle_404(e):
     """404错误处理"""
     logger.warning(f"404 Not Found: {request.path}")
-    return jsonify({
+    return {
         'code': 404,
         'msg': '接口不存在',
         'data': None
-    }), 200
+    }, 200
 
 # 启动应用
 if __name__ == '__main__':

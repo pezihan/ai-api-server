@@ -1,7 +1,7 @@
 import jwt
 import time
 from functools import wraps
-from flask import request, jsonify
+from flask import request
 from config.config import config
 from utils.logger import logger, log_error
 from utils.redis_client import redis_client
@@ -50,10 +50,11 @@ class AuthMiddleware:
             token = request.headers.get('Authorization')
             
             if not token:
-                return jsonify({
-                    'success': False,
-                    'message': '缺少认证令牌'
-                }), 401
+                return {
+                    'code': 401,
+                    'msg': '缺少认证令牌',
+                    'data': None
+                }, 200
             
             # 移除Bearer前缀
             if token.startswith('Bearer '):
@@ -61,10 +62,11 @@ class AuthMiddleware:
             
             # 验证令牌
             if not AuthMiddleware.verify_token(token):
-                return jsonify({
-                    'success': False,
-                    'message': '认证令牌无效或已过期'
-                }), 401
+                return {
+                    'code': 401,
+                    'msg': '认证令牌无效或已过期',
+                    'data': None
+                }, 200
             
             return f(*args, **kwargs)
         
