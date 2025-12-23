@@ -67,7 +67,7 @@ class ModelScheduler:
         
         model_path = kwargs.get('model_path', "ovedrive/Qwen-Image-Edit-2509-4bit")
         max_side_length = kwargs.get('max_side_length', 896)
-        use_lighting = kwargs.get('use_lighting', True)
+        use_lighting = kwargs.get('use_lighting', False)
         
         # 设备配置
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -119,13 +119,6 @@ class ModelScheduler:
                 text_encoder=text_encoder,
                 scheduler=scheduler
             )
-            # 加载Lightning LoRA
-            # pipe.load_lora_weights(
-            #     "./Qwen-Image-Edit-Remove-Clothes",
-            #     weight_name="qwen-edit-remove-clothes.safetensors",
-            #     adapter_name="clothes",
-            #     scale=1.0
-            # )
         else:
             pipe = QwenImageEditPlusPipeline.from_pretrained(
                 model_path,
