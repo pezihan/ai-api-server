@@ -1,0 +1,7 @@
+flask
+flask-cors
+python-dotenv
+redis
+pika
+pyjwt
+flask-restx
