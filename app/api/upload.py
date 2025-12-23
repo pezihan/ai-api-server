@@ -18,27 +18,10 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 ALLOWED_IMAGE_TYPES = {'png', 'jpg', 'jpeg', 'gif'}
 ALLOWED_VIDEO_TYPES = {'mp4', 'avi', 'mov', 'mkv'}
 
-# 定义响应模型
-upload_response_model = upload_ns.model('UploadResponse', {
-    'code': fields.Integer(description='业务状态码'),
-    'msg': fields.String(description='消息'),
-    'data': fields.Nested({
-        'file_path': fields.String(description='文件在服务器上的路径'),
-        'file_name': fields.String(description='文件名'),
-        'file_size': fields.Integer(description='文件大小（字节）'),
-        'upload_time': fields.Integer(description='上传时间戳')
-    })
-})
-
 @upload_ns.route('/')
 class UploadFile(Resource):
     """文件上传接口"""
     
-    @upload_ns.expect(
-        upload_ns.parser()
-        .add_argument('file', type='file', location='files', required=True, help='要上传的文件')
-    )
-    @upload_ns.response(200, '上传成功', upload_response_model)
     @auth_required
     def post(self):
         """
