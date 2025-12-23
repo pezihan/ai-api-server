@@ -97,3 +97,6 @@ class AuthMiddleware:
 
 # 创建认证中间件实例
 auth_middleware = AuthMiddleware()
+
+# 提供auth_required作为login_required的别名，保持兼容性
+auth_required = AuthMiddleware.login_required
