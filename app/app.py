@@ -7,7 +7,7 @@ from middlewares.auth import auth_middleware
 import traceback
 
 # 导入API模块的命名空间
-from api import auth_ns, health_ns
+from app.api import auth_ns, health_ns, image_ns, video_ns, task_ns
 
 # 创建Flask应用
 app = Flask(__name__)
@@ -27,6 +27,9 @@ api = Api(
 # 注册命名空间
 api.add_namespace(auth_ns)
 api.add_namespace(health_ns)
+api.add_namespace(image_ns)
+api.add_namespace(video_ns)
+api.add_namespace(task_ns)
 
 # 请求日志记录中间件
 @app.before_request
