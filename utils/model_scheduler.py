@@ -2,6 +2,10 @@ import torch
 import os
 import gc
 from utils.logger import logger
+from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
+from transformers import Qwen2_5_VLForConditionalGeneration
+import math
+from ..LightX2V.lightx2v import LightX2VPipeline
 
 class ModelScheduler:
     """模型调度器，管理qwen和wan模型的加载和卸载，避免显存溢出"""
@@ -99,9 +103,6 @@ class ModelScheduler:
     
     def _load_qwen_model(self, **kwargs):
         """加载qwen图片生成模型"""
-        from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
-        from transformers import Qwen2_5_VLForConditionalGeneration
-        import math
         
         cpu_offload = self.is_cpu_offload_enabled_image()
         model_path = kwargs.get('model_path', "ovedrive/Qwen-Image-Edit-2509-4bit")
@@ -187,7 +188,6 @@ class ModelScheduler:
     
     def _load_wan_model(self, **kwargs):
         """加载wan视频生成模型"""
-        from ..LightX2V.lightx2v import LightX2VPipeline
         
         model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
         model_cls = kwargs.get('model_cls', "wan2.2_moe")
