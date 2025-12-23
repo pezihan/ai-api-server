@@ -3,13 +3,7 @@ import os
 import gc
 import sys
 from utils.logger import logger
-from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
-from transformers import Qwen2_5_VLForConditionalGeneration
-import math
 
-# 将LightX2V目录添加到Python路径
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
-from lightx2v import LightX2VPipeline
 
 class ModelScheduler:
     """模型调度器，管理qwen和wan模型的加载和卸载，避免显存溢出"""
@@ -107,6 +101,9 @@ class ModelScheduler:
     
     def _load_qwen_model(self, **kwargs):
         """加载qwen图片生成模型"""
+        from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
+        from transformers import Qwen2_5_VLForConditionalGeneration
+        import math
         
         cpu_offload = self.is_cpu_offload_enabled_image()
         model_path = kwargs.get('model_path', "ovedrive/Qwen-Image-Edit-2509-4bit")
@@ -192,7 +189,10 @@ class ModelScheduler:
     
     def _load_wan_model(self, **kwargs):
         """加载wan视频生成模型"""
-        
+        # 将LightX2V目录添加到Python路径
+        sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
+        from lightx2v import LightX2VPipeline
+
         model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
         model_cls = kwargs.get('model_cls', "wan2.2_moe")
         task = kwargs.get('task', "t2v")
