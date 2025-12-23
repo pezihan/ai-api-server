@@ -100,6 +100,26 @@ class RedisClient:
     def ttl(self, key):
         """获取键剩余过期时间"""
         return self.client.ttl(key)
+    
+    @_reconnect_wrapper
+    def hset(self, name, key, value):
+        """设置Hash字段的值"""
+        return self.client.hset(name, key, value)
+    
+    @_reconnect_wrapper
+    def hget(self, name, key):
+        """获取Hash字段的值"""
+        return self.client.hget(name, key)
+    
+    @_reconnect_wrapper
+    def hgetall(self, name):
+        """获取Hash的所有字段和值"""
+        return self.client.hgetall(name)
+    
+    @_reconnect_wrapper
+    def hdel(self, name, *keys):
+        """删除Hash的字段"""
+        return self.client.hdel(name, *keys)
 
 # 创建Redis客户端实例
 redis_client = RedisClient()
