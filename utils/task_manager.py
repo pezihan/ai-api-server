@@ -12,7 +12,7 @@ class TaskManager:
         self.redis = redis_client
         self.rabbitmq = rabbitmq_client
         self.task_queue_name = "ai_task_queue"
-        self.task_info_key_prefix = "ai_task:info:"
+        self.task_info_hash_key = "ai_task:info"  # 使用单个Hash键存储所有任务信息
     
     def create_task(self, task_type, task_params):
         """
@@ -39,9 +39,8 @@ class TaskManager:
             'error': None
         }
         
-        # 存储任务信息到Redis
-        task_key = f"{self.task_info_key_prefix}{task_id}"
-        self.redis.set(task_key, json.dumps(task_info))
+        # 存储任务信息到Redis Hash
+        self.redis.hset(self.task_info_hash_key, task_id, json.dumps(task_info))
         
         # 将任务ID加入RabbitMQ队列
         self.rabbitmq.publish_message(self.task_queue_name, task_id, durable=True)
@@ -59,8 +58,7 @@ class TaskManager:
         Returns:
             dict: 任务信息
         """
-        task_key = f"{self.task_info_key_prefix}{task_id}"
-        task_info_str = self.redis.get(task_key)
+        task_info_str = self.redis.hget(self.task_info_hash_key, task_id)
         if task_info_str:
             return json.loads(task_info_str)
         return None
@@ -88,8 +86,8 @@ class TaskManager:
         if error is not None:
             task_info['error'] = error
         
-        task_key = f"{self.task_info_key_prefix}{task_id}"
-        self.redis.set(task_key, json.dumps(task_info))
+        # 更新任务信息到Redis Hash
+        self.redis.hset(self.task_info_hash_key, task_id, json.dumps(task_info))
         
         logger.info(f"更新任务状态: {task_id}, 状态: {status}")
         return True
@@ -106,18 +104,16 @@ class TaskManager:
         Returns:
             dict: 任务列表和总数
         """
-        # 获取所有任务键
-        all_task_keys = self.redis.keys(f"{self.task_info_key_prefix}*")
+        # 获取所有任务信息
+        all_tasks = self.redis.hgetall(self.task_info_hash_key)
         
         tasks = []
-        for key in all_task_keys:
-            task_info_str = self.redis.get(key)
-            if task_info_str:
-                task_info = json.loads(task_info_str)
-                # 根据状态过滤
-                if status and task_info['status'] != status:
-                    continue
-                tasks.append(task_info)
+        for task_id, task_info_str in all_tasks.items():
+            task_info = json.loads(task_info_str)
+            # 根据状态过滤
+            if status and task_info['status'] != status:
+                continue
+            tasks.append(task_info)
         
         # 按创建时间倒序排序
         tasks.sort(key=lambda x: x['created_at'], reverse=True)
@@ -153,8 +149,7 @@ class TaskManager:
         Args:
             task_id: str, 任务ID
         """
-        task_key = f"{self.task_info_key_prefix}{task_id}"
-        self.redis.delete(task_key)
+        self.redis.hdel(self.task_info_hash_key, task_id)
         logger.info(f"任务删除成功: {task_id}")
 
 # 创建全局任务管理器实例

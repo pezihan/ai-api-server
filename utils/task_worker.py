@@ -105,6 +105,10 @@ class TaskWorker:
         Returns:
             dict: 处理结果
         """
+        # 创建输出目录
+        output_dir = "/tmp/ai-api-images"
+        os.makedirs(output_dir, exist_ok=True)
+        
         # 加载qwen模型
         pipe = model_scheduler.load_model('qwen')
         
@@ -133,11 +137,14 @@ class TaskWorker:
             
         elif task_type == 'img2img':
             # 图生图任务
-            image_base64 = task_params.get('image')
+            image_path = task_params.get('image_path')
             
-            # 解码base64图片
-            image_data = base64.b64decode(image_base64)
-            image = Image.open(BytesIO(image_data)).convert("RGB")
+            # 验证文件路径存在
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"图片文件不存在: {image_path}")
+            
+            # 加载图片
+            image = Image.open(image_path).convert("RGB")
             
             # 执行生成
             output = pipe(
@@ -151,13 +158,16 @@ class TaskWorker:
         # 获取生成的图片
         generated_image = output.images[0]
         
-        # 将图片转换为base64编码
-        buffer = BytesIO()
-        generated_image.save(buffer, format="PNG")
-        image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        # 生成唯一的输出文件名并保存
+        timestamp = int(time.time())
+        random_suffix = base64.urlsafe_b64encode(os.urandom(4)).decode('utf-8')
+        output_filename = f"{task_type}_{timestamp}_{random_suffix}.png"
+        output_path = os.path.join(output_dir, output_filename)
+        
+        generated_image.save(output_path, format="PNG")
         
         return {
-            'image': image_base64,
+            'image_path': output_path,
             'task_type': task_type
         }
     
@@ -212,38 +222,22 @@ class TaskWorker:
             )
         elif task_type == 'img2video':
             # 图生视频
-            image_base64 = task_params.get('image')
+            image_path = task_params.get('image_path')
             
-            # 解码base64图片并保存到临时文件
-            image_data = base64.b64decode(image_base64)
-            temp_image_path = os.path.join(output_dir, f"temp_{time.time()}.png")
-            with open(temp_image_path, 'wb') as f:
-                f.write(image_data)
+            # 验证文件路径存在
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"图片文件不存在: {image_path}")
             
-            try:
-                pipe.generate(
-                    seed=seed,
-                    image_path=temp_image_path,
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    save_result_path=output_path,
-                )
-            finally:
-                # 删除临时图片
-                if os.path.exists(temp_image_path):
-                    os.remove(temp_image_path)
-        
-        # 将视频文件转换为base64编码
-        with open(output_path, 'rb') as f:
-            video_data = f.read()
-        video_base64 = base64.b64encode(video_data).decode("utf-8")
-        
-        # 删除临时视频文件
-        if os.path.exists(output_path):
-            os.remove(output_path)
+            pipe.generate(
+                seed=seed,
+                image_path=image_path,
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                save_result_path=output_path,
+            )
         
         return {
-            'video': video_base64,
+            'video_path': output_path,
             'task_type': task_type
         }
 

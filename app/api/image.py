@@ -26,7 +26,7 @@ text2img_model = image_ns.model('Text2ImgRequest', {
 img2img_model = image_ns.model('Img2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
-    'image': fields.String(required=True, description='输入图片的base64编码'),
+    'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
     'seed': fields.Integer(required=False, description='随机种子'),
     'steps': fields.Integer(required=False, default=50, description='推理步数')
 })
@@ -84,21 +84,21 @@ class Img2Img(Resource):
             data = request.get_json()
             prompt = data.get('prompt')
             negative_prompt = data.get('negative_prompt', '')
-            image_base64 = data.get('image')
+            image_path = data.get('image_path')
             seed = data.get('seed')
             steps = data.get('steps', 50)
             
             # 验证参数
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200
-            if not image_base64:
-                return {'code': 400, 'msg': '缺少图片参数', 'data': None}, 200
+            if not image_path:
+                return {'code': 400, 'msg': '缺少图片路径参数', 'data': None}, 200
             
             # 创建任务
             task_params = {
                 'prompt': prompt,
                 'negative_prompt': negative_prompt,
-                'image': image_base64,
+                'image_path': image_path,
                 'seed': seed,
                 'steps': steps
             }
