@@ -19,7 +19,45 @@ class ModelScheduler:
         self.current_model = None  # 当前加载的模型: None, 'qwen', 'wan'
         self.model_pipeline = None  # 当前模型的pipeline实例
         self.model_params = {}  # 当前模型的参数
-    
+
+    def is_cpu_offload_enabled_image(self) -> bool:
+        """
+        判断是否需要开启 CPU 卸载功能
+        判定条件：若存在可用 NVIDIA GPU 且其显存小于 32GB，则返回 True（开启 CPU 卸载）；否则返回 False（不开启）
+
+        Returns:
+            bool: True - 开启 CPU 卸载；False - 不开启 CPU 卸载
+        """
+        # 1. 先判断是否有可用的 NVIDIA GPU
+        if not torch.cuda.is_available():
+            # 无 GPU 时，默认无需开启 CPU 卸载（或根据业务需求调整，此处返回 False）
+            print("提示：未检测到可用 NVIDIA GPU，无需开启 CPU 卸载")
+            return False
+
+        # 2. 获取当前 GPU 设备数量（多 GPU 场景取主 GPU（索引 0）的显存进行判断）
+        gpu_count = torch.cuda.device_count()
+        main_gpu_index = 0  # 主 GPU 索引，默认取第 0 块
+        if main_gpu_index >= gpu_count:
+            print("提示：主 GPU 索引超出可用范围，无需开启 CPU 卸载")
+            return False
+
+        # 3. 获取主 GPU 的显存信息（单位：字节 Byte）
+        # torch.cuda.get_device_properties 返回 GPU 设备属性对象
+        gpu_properties = torch.cuda.get_device_properties(main_gpu_index)
+        total_memory_bytes = gpu_properties.total_memory  # 总显存（字节）
+
+        # 4. 单位转换：字节（Byte）→ 吉字节（GB，1GB = 1024^3 Byte = 1073741824 Byte）
+        # 注：若需按 1GB=1000^3 Byte 计算，可替换为 1000**3
+        total_memory_gb = total_memory_bytes / (1024 ** 3)
+
+        # 5. 判断显存是否小于 32GB，返回对应结果
+        if total_memory_gb < 32.0:
+            print(f"提示：主 GPU（索引 {main_gpu_index}）显存为 {total_memory_gb:.2f} GB（< 32GB），建议开启 CPU 卸载")
+            return True
+        else:
+            print(f"提示：主 GPU（索引 {main_gpu_index}）显存为 {total_memory_gb:.2f} GB（≥ 32GB），无需开启 CPU 卸载")
+            return False
+
     def load_model(self, model_type, **kwargs):
         """
         加载指定类型的模型
@@ -65,6 +103,7 @@ class ModelScheduler:
         from transformers import Qwen2_5_VLForConditionalGeneration
         import math
         
+        cpu_offload = self.is_cpu_offload_enabled_image()
         model_path = kwargs.get('model_path', "ovedrive/Qwen-Image-Edit-2509-4bit")
         max_side_length = kwargs.get('max_side_length', 896)
         use_lighting = kwargs.get('use_lighting', False)
@@ -81,7 +120,10 @@ class ModelScheduler:
             subfolder="transformer",
             torch_dtype=torch_dtype
         )
-        transformer = transformer.to("cpu")
+        if cpu_offload:
+            transformer = transformer.to("cpu")
+        else:
+            transformer.to(device)
         
         # 加载text_encoder组件
         text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -89,7 +131,10 @@ class ModelScheduler:
             subfolder="text_encoder",
             dtype=torch_dtype
         )
-        text_encoder = text_encoder.to("cpu")
+        if cpu_offload:
+            text_encoder = text_encoder.to("cpu")
+        else:
+            text_encoder.to(device)
         
         # 加载调度器和pipeline
         if use_lighting:
@@ -129,13 +174,14 @@ class ModelScheduler:
             )
         
         # 启用CPU卸载（节省显存）
-        pipe.enable_model_cpu_offload()
-        
-        pipe.vae.enable_slicing()
-        pipe.vae.enable_tiling()
-        
-        pipe.safety_checker = None
-        pipe.feature_extractor = None
+        if cpu_offload:
+            pipe.enable_model_cpu_offload()
+            pipe.vae.enable_slicing()
+            pipe.vae.enable_tiling()
+            pipe.safety_checker = None
+            pipe.feature_extractor = None
+        else:
+            pipe.to(device)
         
         self.model_pipeline = pipe
     
