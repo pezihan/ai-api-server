@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
 from flask_restx import Api
 from config.config import config
@@ -50,6 +50,27 @@ def handle_exception(e):
         'msg': '服务器内部错误',
         'data': None
     }, 200
+
+# 静态文件服务 - 提供FILE_SAVE_DIR目录下的文件访问
+import os
+# 获取FILE_SAVE_DIR的最后一个目录名作为路由前缀
+file_dir_prefix = os.path.basename(config.FILE_SAVE_DIR.rstrip('/'))
+# 创建动态路由
+@app.route(f'/{file_dir_prefix}/<path:filename>')
+def serve_file(filename):
+    """提供静态文件访问服务，支持多级目录结构"""
+    # 防止目录遍历攻击
+    safe_filename = os.path.normpath(filename)
+    if safe_filename.startswith('..') or os.path.isabs(safe_filename):
+        logger.warning(f"尝试访问不安全的文件路径: {filename}")
+        return {
+            'code': 403,
+            'msg': '禁止访问的文件路径',
+            'data': None
+        }, 200
+    
+    logger.info(f"访问文件: {safe_filename} 来自目录: {config.FILE_SAVE_DIR}")
+    return send_from_directory(config.FILE_SAVE_DIR, safe_filename)
 
 # 404错误处理
 @app.errorhandler(404)

@@ -189,7 +189,7 @@ class TaskWorker:
         prompt = task_params.get('prompt')
         negative_prompt = task_params.get('negative_prompt', '')
         seed = task_params.get('seed')
-        steps = task_params.get('steps', 50)
+        steps = task_params.get('steps', 4)
         width = task_params.get('width', 480)
         height = task_params.get('height', 832)
         num_frames = task_params.get('num_frames', 81)
@@ -204,11 +204,15 @@ class TaskWorker:
         
         if task_type == 'text2video':
             # 文生视频
-            pipe.generate(
+            pipe.infer(
                 seed=seed,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 save_result_path=output_path,
+                target_width=width,
+                target_height=height,
+                target_video_length=num_frames,
+                infer_steps=steps
             )
         elif task_type == 'img2video':
             # 图生视频
@@ -218,12 +222,16 @@ class TaskWorker:
             if not os.path.exists(image_path):
                 raise FileNotFoundError(f"图片文件不存在: {image_path}")
             
-            pipe.generate(
+            pipe.infer(
                 seed=seed,
                 image_path=image_path,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 save_result_path=output_path,
+                target_width=width,
+                target_height=height,
+                target_video_length=num_frames,
+                infer_steps=steps
             )
         
         return {

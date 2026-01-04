@@ -222,34 +222,25 @@ class ModelScheduler:
     def _load_wan_t2v_model(self, **kwargs):
         """加载wan文生视频模型"""
         # 将LightX2V目录添加到Python路径
-        sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
-        from lightx2v import LightX2VPipeline
-
+        from wan import WanPipeRunner
 
         model_path = kwargs.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
         model_config_path = kwargs.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
         model_cls = kwargs.get('model_cls', "wan2.1_distill")
-        
         logger.info(f"加载wan文生视频模型: {model_path}, model_cls: {model_cls}")
-        
-        # 初始化pipeline
-        pipe = LightX2VPipeline(
+        pipe = WanPipeRunner(
             model_path=model_path,
+            config_json_path=model_config_path,
             model_cls=model_cls,
-            task="t2v",
+            task="t2v"
         )
-
-        pipe.create_generator(
-            config_json=model_config_path
-        )
-        
+        pipe.load()
         self.model_pipeline = pipe
     
     def _load_wan_i2v_model(self, **kwargs):
         """加载wan图生视频模型"""
         # 将LightX2V目录添加到Python路径
-        sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
-        from lightx2v import LightX2VPipeline
+        from wan import WanPipeRunner
 
         model_path = kwargs.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.2-Distill-Models"))
         model_config_path = kwargs.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
@@ -258,16 +249,13 @@ class ModelScheduler:
         logger.info(f"加载wan图生视频模型: {model_path}, model_cls: {model_cls}")
         
         # 初始化pipeline
-        pipe = LightX2VPipeline(
+        pipe = WanPipeRunner(
             model_path=model_path,
+            config_json_path=model_config_path,
             model_cls=model_cls,
-            task="i2v",
+            task="i2v"
         )
-
-        pipe.create_generator(
-            config_json=model_config_path
-        )
-        
+        pipe.load()        
         self.model_pipeline = pipe
     
     def unload_model(self):

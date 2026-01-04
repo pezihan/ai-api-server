@@ -13,7 +13,7 @@ text2video_model = video_ns.model('Text2VideoRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=50, description='推理步数'),
+    'steps': fields.Integer(required=False, default=4, description='推理步数'),
     'width': fields.Integer(required=False, default=480, description='视频宽度'),
     'height': fields.Integer(required=False, default=832, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数')
@@ -24,7 +24,7 @@ img2video_model = video_ns.model('Img2VideoRequest', {
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=50, description='推理步数'),
+    'steps': fields.Integer(required=False, default=4, description='推理步数'),
     'width': fields.Integer(required=False, default=480, description='视频宽度'),
     'height': fields.Integer(required=False, default=832, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数')
@@ -42,7 +42,7 @@ class Text2Video(Resource):
             prompt = data.get('prompt')
             negative_prompt = data.get('negative_prompt', '')
             seed = data.get('seed')
-            steps = data.get('steps', 50)
+            steps = data.get('steps', 4)
             width = data.get('width', 480)
             height = data.get('height', 832)
             num_frames = data.get('num_frames', 81)
@@ -87,7 +87,7 @@ class Img2Video(Resource):
             negative_prompt = data.get('negative_prompt', '')
             image_path = data.get('image_path')
             seed = data.get('seed')
-            steps = data.get('steps', 50)
+            steps = data.get('steps', 4)
             width = data.get('width', 480)
             height = data.get('height', 832)
             num_frames = data.get('num_frames', 81)
