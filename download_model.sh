@@ -21,7 +21,7 @@ huggingface-cli download Wan-AI/Wan2.1-T2V-14B \
 
 huggingface-cli download Wan-AI/Wan2.1-T2V-14B \
     --local-dir $WAN_21_DISTILL_MODELS_DIR \
-    --include "google"
+    --include "google/**/*"
 
 
 # 下载Wan2.2-I2V-A14B模型
@@ -53,4 +53,4 @@ huggingface-cli download Wan-AI/Wan2.2-I2V-A14B \
 
 huggingface-cli download Wan-AI/Wan2.2-I2V-A14B \
     --local-dir $WAN_22_DISTILL_MODELS_DIR \
-    --include "google"
+    --include "google/**/*"
