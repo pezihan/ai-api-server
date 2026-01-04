@@ -1,4 +1,4 @@
-version: "3"
+version: "3.8"
 
 services:
   # Redis服务
@@ -15,8 +15,6 @@ services:
       - --requirepass ${REDIS_PASSWORD}
       - --appendonly yes
       - --appendfsync everysec
-    volumes:
-      - redis-data:/data
 
   # RabbitMQ服务
   rabbitmq:
@@ -30,6 +28,3 @@ services:
       - RABBITMQ_DEFAULT_USER=admin
       - RABBITMQ_DEFAULT_PASS=admin
       - RABBITMQ_DEFAULT_VHOST=/
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-      - rabbitmq-log:/var/log/rabbitmq
