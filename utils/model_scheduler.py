@@ -112,11 +112,11 @@ class ModelScheduler:
         """加载z-image文生图模型"""
         import torch
         from modelscope import ZImagePipeline
-        logger.info(f"加载z-image文生图模型: {model_path}")
         cpu_offload = self.is_cpu_offload_enabled_image()
         device = "cuda" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.bfloat16
         model_path = kwargs.get('model_path', "Tongyi-MAI/Z-Image-Turbo")
+        logger.info(f"加载z-image文生图模型: {model_path}")
         pipe = ZImagePipeline.from_pretrained(
             model_path,
             torch_dtype=torch_dtype,
