@@ -106,7 +106,7 @@ class TaskWorker:
             dict: 处理结果
         """
         # 创建输出目录
-        output_dir = os.path.join(config.FILE_SAVE_DIR, "/ai-api-images")
+        output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-images")
         os.makedirs(output_dir, exist_ok=True)
         
         # 加载qwen模型
@@ -199,7 +199,7 @@ class TaskWorker:
         pipe = model_scheduler.load_model(task_type=task_type)
         
         # 生成唯一的输出路径
-        output_dir = os.path.join(config.FILE_SAVE_DIR, "/ai-api-videos")
+        output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-videos")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, f"{time.time()}_{seed}.mp4")
         
