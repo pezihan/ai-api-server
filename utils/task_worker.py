@@ -110,7 +110,7 @@ class TaskWorker:
         os.makedirs(output_dir, exist_ok=True)
         
         # 加载qwen模型
-        pipe = model_scheduler.load_model('qwen')
+        pipe = model_scheduler.load_model(task_type=task_type)
         
         prompt = task_params.get('prompt')
         negative_prompt = task_params.get('negative_prompt', '')
@@ -190,11 +190,8 @@ class TaskWorker:
         height = task_params.get('height', 832)
         num_frames = task_params.get('num_frames', 81)
         
-        # 根据任务类型加载相应的wan模型
-        if task_type == 'text2video':
-            pipe = model_scheduler.load_model('wan', task='t2v')
-        elif task_type == 'img2video':
-            pipe = model_scheduler.load_model('wan', task='i2v')
+        # 加载wan模型
+        pipe = model_scheduler.load_model(task_type=task_type)
         
         # 创建生成器
         pipe.create_generator(

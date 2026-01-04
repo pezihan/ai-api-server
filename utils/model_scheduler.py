@@ -18,7 +18,7 @@ class ModelScheduler:
     
     def _init(self):
         """初始化模型调度器"""
-        self.current_model = None  # 当前加载的模型: None, 'qwen', 'wan'
+        self.current_task = None  # 当前模型的任务类型: None, 'text2img', 'img2img', 'text2video', 'img2video'
         self.model_pipeline = None  # 当前模型的pipeline实例
         self.model_params = {}  # 当前模型的参数
 
@@ -60,22 +60,29 @@ class ModelScheduler:
             print(f"提示：主 GPU（索引 {main_gpu_index}）显存为 {total_memory_gb:.2f} GB（≥ 32GB），无需开启 CPU 卸载")
             return False
 
-    def load_model(self, model_type, **kwargs):
+    def load_model(self, task_type, **kwargs):
         """
         加载指定类型的模型
         
         Args:
-            model_type: str, 模型类型 ('qwen' 或 'wan')
+            task_type: str, 任务类型 ('text2img', 'img2img', 'text2video', 'img2video')
             **kwargs: 模型加载参数
             
         Returns:
             pipeline: 加载的模型pipeline实例
         """
-        logger.info(f"加载模型: {model_type}, 参数: {kwargs}")
+        # 支持的任务类型
+        supported_tasks = ['text2img', 'img2img', 'text2video', 'img2video']
         
-        # 如果要加载的模型与当前模型相同，直接返回
-        if self.current_model == model_type:
-            logger.info(f"模型 {model_type} 已加载，直接复用")
+        # 验证任务类型
+        if task_type not in supported_tasks:
+            raise ValueError(f"不支持的任务类型: {task_type}")
+        
+        logger.info(f"加载模型, 任务类型: {task_type}, 参数: {kwargs}")
+        
+        # 如果要加载的任务与当前模型的任务类型相同，直接返回
+        if self.current_task == task_type:
+            logger.info(f"模型 (任务: {task_type}) 已加载，直接复用")
             return self.model_pipeline
         
         # 卸载当前模型
@@ -83,24 +90,54 @@ class ModelScheduler:
         
         # 加载新模型
         try:
-            if model_type == 'qwen':
-                self._load_qwen_model(**kwargs)
-            elif model_type == 'wan':
-                self._load_wan_model(**kwargs)
-            else:
-                raise ValueError(f"不支持的模型类型: {model_type}")
+            if task_type == 'text2img':
+                self._load_qwen_t2i_model(**kwargs)
+            elif task_type == 'img2img':
+                self._load_qwen_i2i_model(**kwargs)
+            elif task_type == 'text2video':
+                self._load_wan_t2v_model(**kwargs)
+            elif task_type == 'img2video':
+                self._load_wan_i2v_model(**kwargs)
             
-            self.current_model = model_type
+            self.current_task = task_type
             self.model_params = kwargs
-            logger.info(f"模型 {model_type} 加载成功")
+            logger.info(f"模型 (任务: {self.current_task}) 加载成功")
             return self.model_pipeline
             
         except Exception as e:
-            logger.error(f"加载模型 {model_type} 失败: {e}")
+            logger.error(f"加载模型失败: {e}")
             raise
     
-    def _load_qwen_model(self, **kwargs):
-        """加载qwen图片生成模型"""
+    def _load_qwen_t2i_model(self, **kwargs):
+        """加载qwen文生图模型"""
+        from diffusers import DiffusionPipeline
+        import torch
+
+        cpu_offload = self.is_cpu_offload_enabled_image()
+         # 设备配置
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        torch_dtype = torch.bfloat16
+
+        model_path = kwargs.get('model_path', "Qwen/Qwen-Image-2512")
+        pipe = DiffusionPipeline.from_pretrained(model_path, torch_dtype=torch_dtype)
+
+        
+        logger.info(f"加载qwen文生图模型: {model_path}")
+        
+        # 启用CPU卸载（节省显存）
+        if cpu_offload:
+            pipe.enable_model_cpu_offload()
+            pipe.vae.enable_slicing()
+            pipe.vae.enable_tiling()
+            pipe.safety_checker = None
+            pipe.feature_extractor = None
+        else:
+            pipe.to(device)
+        
+        self.model_pipeline = pipe
+    
+    def _load_qwen_i2i_model(self, **kwargs):
+        """加载qwen图生图模型"""
         from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
         from transformers import Qwen2_5_VLForConditionalGeneration
         import math
@@ -110,11 +147,11 @@ class ModelScheduler:
         max_side_length = kwargs.get('max_side_length', 896)
         use_lighting = kwargs.get('use_lighting', False)
         
+        logger.info(f"加载qwen图生图模型: {model_path}, max_side_length: {max_side_length}, use_lighting: {use_lighting}")
+        
         # 设备配置
         device = "cuda" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.bfloat16
-        
-        logger.info(f"加载qwen模型: {model_path}, max_side_length: {max_side_length}, use_lighting: {use_lighting}")
         
         # 加载transformer组件
         transformer = QwenImageTransformer2DModel.from_pretrained(
@@ -187,23 +224,51 @@ class ModelScheduler:
         
         self.model_pipeline = pipe
     
-    def _load_wan_model(self, **kwargs):
-        """加载wan视频生成模型"""
+    def _load_wan_t2v_model(self, **kwargs):
+        """加载wan文生视频模型"""
         # 将LightX2V目录添加到Python路径
         sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
         from lightx2v import LightX2VPipeline
 
         model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
         model_cls = kwargs.get('model_cls', "wan2.2_moe")
-        task = kwargs.get('task', "t2v")
         
-        logger.info(f"加载wan模型: {model_path}, model_cls: {model_cls}, task: {task}")
+        logger.info(f"加载wan文生视频模型: {model_path}, model_cls: {model_cls}")
         
         # 初始化pipeline
         pipe = LightX2VPipeline(
             model_path=model_path,
             model_cls=model_cls,
-            task=task,
+            task="t2v",
+        )
+        
+        # 启用offload减少显存使用
+        pipe.enable_offload(
+            cpu_offload=True,
+            offload_granularity="block",
+            text_encoder_offload=True,
+            image_encoder_offload=False,
+            vae_offload=False,
+        )
+        
+        self.model_pipeline = pipe
+    
+    def _load_wan_i2v_model(self, **kwargs):
+        """加载wan图生视频模型"""
+        # 将LightX2V目录添加到Python路径
+        sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
+        from lightx2v import LightX2VPipeline
+
+        model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
+        model_cls = kwargs.get('model_cls', "wan2.2_moe")
+        
+        logger.info(f"加载wan图生视频模型: {model_path}, model_cls: {model_cls}")
+        
+        # 初始化pipeline
+        pipe = LightX2VPipeline(
+            model_path=model_path,
+            model_cls=model_cls,
+            task="i2v",
         )
         
         # 启用offload减少显存使用
@@ -219,10 +284,10 @@ class ModelScheduler:
     
     def unload_model(self):
         """卸载当前模型，释放显存"""
-        if self.current_model is None:
+        if self.current_task is None:
             return
         
-        logger.info(f"卸载当前模型: {self.current_model}")
+        logger.info(f"卸载当前模型 (任务: {self.current_task})")
         
         # 释放模型资源
         if self.model_pipeline is not None:
@@ -237,7 +302,7 @@ class ModelScheduler:
         # 强制垃圾回收
         gc.collect()
         
-        self.current_model = None
+        self.current_task = None
         self.model_params = {}
         
         logger.info("模型卸载完成，显存已释放")
@@ -250,7 +315,7 @@ class ModelScheduler:
             dict: 当前模型信息
         """
         return {
-            'model_type': self.current_model,
+            'current_task': self.current_task,
             'model_pipeline': self.model_pipeline,
             'model_params': self.model_params
         }
