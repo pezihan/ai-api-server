@@ -20,15 +20,19 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'seed': fields.Integer(required=False, description='随机种子'),
     'steps': fields.Integer(required=False, default=50, description='推理步数'),
     'width': fields.Integer(required=False, default=512, description='图片宽度'),
-    'height': fields.Integer(required=False, default=512, description='图片高度')
+    'height': fields.Integer(required=False, default=512, description='图片高度'),
+    'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子')
 })
 
 img2img_model = image_ns.model('Img2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
-    'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=50, description='推理步数')
+    'steps': fields.Integer(required=False, default=50, description='推理步数'),
+    'width': fields.Integer(required=False, default=512, description='图片宽度'),
+    'height': fields.Integer(required=False, default=512, description='图片高度'),
+    'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子'),
+    'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
 })
 
 @image_ns.route('/text2img')
@@ -46,6 +50,7 @@ class Text2Img(Resource):
             steps = data.get('steps', 50)
             width = data.get('width', 512)
             height = data.get('height', 512)
+            guidance_scale = data.get('guidance_scale', 5.0)
             
             # 验证参数
             if not prompt:
@@ -58,7 +63,8 @@ class Text2Img(Resource):
                 'seed': seed,
                 'steps': steps,
                 'width': width,
-                'height': height
+                'height': height,
+                'guidance_scale': guidance_scale
             }
             
             task_id = task_manager.create_task('text2img', task_params)
@@ -87,6 +93,9 @@ class Img2Img(Resource):
             image_path = data.get('image_path')
             seed = data.get('seed')
             steps = data.get('steps', 50)
+            width = data.get('width', 512)
+            height = data.get('height', 512)
+            guidance_scale = data.get('guidance_scale', 5.0)
             
             # 验证参数
             if not prompt:
@@ -100,7 +109,10 @@ class Img2Img(Resource):
                 'negative_prompt': negative_prompt,
                 'image_path': image_path,
                 'seed': seed,
-                'steps': steps
+                'steps': steps,
+                'width': width,
+                'height': height,
+                'guidance_scale': guidance_scale
             }
             
             task_id = task_manager.create_task('img2img', task_params)

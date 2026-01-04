@@ -3,7 +3,6 @@ from flask_cors import CORS
 from flask_restx import Api
 from config.config import config
 from utils.logger import logger, log_error
-from middlewares.auth import auth_middleware
 import traceback
 
 # 导入API模块的命名空间

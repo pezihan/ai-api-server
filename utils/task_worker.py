@@ -1,14 +1,13 @@
 import time
-import json
 import os
 import base64
-from io import BytesIO
 from PIL import Image
 import torch
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.rabbitmq_client import rabbitmq_client
+from config.config import config
 
 class TaskWorker:
     """任务工作器，负责处理生成任务"""
@@ -106,7 +105,7 @@ class TaskWorker:
             dict: 处理结果
         """
         # 创建输出目录
-        output_dir = "/tmp/ai-api-images"
+        output_dir = os.path.join(config.FILE_SAVE_DIR, "/ai-api-images")
         os.makedirs(output_dir, exist_ok=True)
         
         # 加载qwen模型
@@ -115,7 +114,8 @@ class TaskWorker:
         prompt = task_params.get('prompt')
         negative_prompt = task_params.get('negative_prompt', '')
         seed = task_params.get('seed')
-        steps = task_params.get('steps', 50)
+        steps = task_params.get('steps', 9)
+        guidance_scale = task_params.get('guidance_scale', 5.0)
         
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
@@ -124,7 +124,7 @@ class TaskWorker:
             # 文生图任务
             width = task_params.get('width', 512)
             height = task_params.get('height', 512)
-            
+           
             # 执行生成
             output = pipe(
                 prompt=prompt,
@@ -132,6 +132,7 @@ class TaskWorker:
                 width=width,
                 height=height,
                 num_inference_steps=steps,
+                guidance_scale=guidance_scale,
                 generator=generator
             )
             
@@ -152,7 +153,10 @@ class TaskWorker:
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 num_inference_steps=steps,
-                generator=generator
+                generator=generator,
+                true_cfg_scale=4.0,
+                guidance_scale=guidance_scale,
+                num_images_per_prompt=1
             )
         
         # 获取生成的图片
@@ -193,19 +197,8 @@ class TaskWorker:
         # 加载wan模型
         pipe = model_scheduler.load_model(task_type=task_type)
         
-        # 创建生成器
-        pipe.create_generator(
-            attn_mode="sage_attn2",
-            infer_steps=steps,
-            height=height,
-            width=width,
-            num_frames=num_frames,
-            guidance_scale=5.0,
-            sample_shift=5.0,
-        )
-        
         # 生成唯一的输出路径
-        output_dir = "/tmp/ai-api-videos"
+        output_dir = os.path.join(config.FILE_SAVE_DIR, "/ai-api-videos")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, f"{time.time()}_{seed}.mp4")
         

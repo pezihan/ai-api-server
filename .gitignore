@@ -17,6 +17,7 @@ logs/
 venv/
 env/
 .env/
+tmp/
 
 # IDE
 .idea/

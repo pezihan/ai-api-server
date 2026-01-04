@@ -5,12 +5,13 @@ from utils.logger import logger
 import os
 import uuid
 import time
+from config.config import config
 
 # 创建命名空间
 upload_ns = Namespace('upload', description='文件上传接口')
 
 # 文件上传目录配置
-UPLOAD_DIR = '/tmp/ai-api-uploads'
+UPLOAD_DIR = os.path.join(config.FILE_SAVE_DIR, "/ai-api-uploads")
 # 确保上传目录存在
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 

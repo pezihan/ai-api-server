@@ -3,7 +3,7 @@ import os
 import gc
 import sys
 from utils.logger import logger
-
+from config.config import config
 
 class ModelScheduler:
     """模型调度器，管理qwen和wan模型的加载和卸载，避免显存溢出"""
@@ -91,7 +91,7 @@ class ModelScheduler:
         # 加载新模型
         try:
             if task_type == 'text2img':
-                self._load_qwen_t2i_model(**kwargs)
+                self._load_zimage_t2i_model(**kwargs)
             elif task_type == 'img2img':
                 self._load_qwen_i2i_model(**kwargs)
             elif task_type == 'text2video':
@@ -108,29 +108,24 @@ class ModelScheduler:
             logger.error(f"加载模型失败: {e}")
             raise
     
-    def _load_qwen_t2i_model(self, **kwargs):
-        """加载qwen文生图模型"""
-        from diffusers import DiffusionPipeline
+    def _load_zimage_t2i_model(self, **kwargs):
+        """加载z-image文生图模型"""
         import torch
-
+        from modelscope import ZImagePipeline
+        logger.info(f"加载z-image文生图模型: {model_path}")
         cpu_offload = self.is_cpu_offload_enabled_image()
-         # 设备配置
         device = "cuda" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.bfloat16
-
-        model_path = kwargs.get('model_path', "Qwen/Qwen-Image-2512")
-        pipe = DiffusionPipeline.from_pretrained(model_path, torch_dtype=torch_dtype)
-
-        
-        logger.info(f"加载qwen文生图模型: {model_path}")
-        
+        model_path = kwargs.get('model_path', "Tongyi-MAI/Z-Image-Turbo")
+        pipe = ZImagePipeline.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=False,
+        )
+        pipe.transformer.set_attention_backend("flash")
         # 启用CPU卸载（节省显存）
         if cpu_offload:
             pipe.enable_model_cpu_offload()
-            pipe.vae.enable_slicing()
-            pipe.vae.enable_tiling()
-            pipe.safety_checker = None
-            pipe.feature_extractor = None
         else:
             pipe.to(device)
         
@@ -230,8 +225,10 @@ class ModelScheduler:
         sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
         from lightx2v import LightX2VPipeline
 
-        model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
-        model_cls = kwargs.get('model_cls', "wan2.2_moe")
+
+        model_path = kwargs.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
+        model_config_path = kwargs.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
+        model_cls = kwargs.get('model_cls', "wan2.1_distill")
         
         logger.info(f"加载wan文生视频模型: {model_path}, model_cls: {model_cls}")
         
@@ -241,14 +238,9 @@ class ModelScheduler:
             model_cls=model_cls,
             task="t2v",
         )
-        
-        # 启用offload减少显存使用
-        pipe.enable_offload(
-            cpu_offload=True,
-            offload_granularity="block",
-            text_encoder_offload=True,
-            image_encoder_offload=False,
-            vae_offload=False,
+
+        pipe.create_generator(
+            config_json=model_config_path
         )
         
         self.model_pipeline = pipe
@@ -259,7 +251,8 @@ class ModelScheduler:
         sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'LightX2V'))
         from lightx2v import LightX2VPipeline
 
-        model_path = kwargs.get('model_path', "/path/to/Wan2.2-T2V-14B")
+        model_path = kwargs.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.2-Distill-Models"))
+        model_config_path = kwargs.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
         model_cls = kwargs.get('model_cls', "wan2.2_moe")
         
         logger.info(f"加载wan图生视频模型: {model_path}, model_cls: {model_cls}")
@@ -270,14 +263,9 @@ class ModelScheduler:
             model_cls=model_cls,
             task="i2v",
         )
-        
-        # 启用offload减少显存使用
-        pipe.enable_offload(
-            cpu_offload=True,
-            offload_granularity="block",
-            text_encoder_offload=True,
-            image_encoder_offload=False,
-            vae_offload=False,
+
+        pipe.create_generator(
+            config_json=model_config_path
         )
         
         self.model_pipeline = pipe
