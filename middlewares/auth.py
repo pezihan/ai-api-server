@@ -4,20 +4,17 @@ from functools import wraps
 from flask import request
 from config.config import config
 from utils.logger import logger, log_error
-from utils.redis_client import redis_client
 
 # JWT配置
-JWT_EXPIRE_TIME = 3600  # 令牌过期时间（秒）
 
 class AuthMiddleware:
     """认证中间件类"""
     
     @staticmethod
     def generate_token():
-        """生成JWT令牌"""
+        """生成JWT令牌（无过期时间）"""
         try:
             payload = {
-                'exp': time.time() + JWT_EXPIRE_TIME,
                 'iat': time.time()
             }
             token = jwt.encode(payload, config.SECRET_KEY, algorithm='HS256')
@@ -28,13 +25,11 @@ class AuthMiddleware:
     
     @staticmethod
     def verify_token(token):
-        """验证JWT令牌"""
+        """验证JWT令牌（忽略过期检查）"""
         try:
-            payload = jwt.decode(token, config.SECRET_KEY, algorithms=['HS256'])
+            # 验证token签名，忽略过期检查
+            jwt.decode(token, config.SECRET_KEY, algorithms=['HS256'], options={"verify_exp": False})
             return True
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token已过期")
-            return False
         except jwt.InvalidTokenError:
             logger.warning("无效的Token")
             return False
@@ -81,8 +76,7 @@ class AuthMiddleware:
                 logger.info("登录成功")
                 return {
                     'success': True,
-                    'token': token,
-                    'expire_time': JWT_EXPIRE_TIME
+                    'token': token
                 }
             else:
                 logger.warning("登录失败：密码错误")

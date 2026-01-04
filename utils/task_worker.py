@@ -3,6 +3,7 @@ import os
 import base64
 from PIL import Image
 import torch
+import cv2
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
@@ -234,8 +235,23 @@ class TaskWorker:
                 infer_steps=steps
             )
         
+        # 生成视频封面（截取第一帧）
+        cover_path = os.path.splitext(output_path)[0] + "_cover.jpg"
+        cap = cv2.VideoCapture(output_path)
+        if cap.isOpened():
+            ret, frame = cap.read()
+            if ret:
+                # 保存封面图片
+                cv2.imwrite(cover_path, frame)
+                logger.info(f"视频封面生成成功: {cover_path}")
+            cap.release()
+        else:
+            logger.warning(f"无法打开视频文件: {output_path}")
+            cover_path = None
+
         return {
             'video_path': output_path,
+            'cover_path': cover_path,
             'task_type': task_type
         }
 
