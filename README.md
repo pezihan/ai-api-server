@@ -31,9 +31,6 @@ conda activate ai-server
 ```bash
 # 安装基础依赖
 pip install -r requirements.txt
-
-# 安装PyTorch（GPU版本）
-pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ### 3. 安装LightX2V依赖
@@ -41,6 +38,11 @@ pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118
 ```bash
 cd LightX2V
 pip install -v -e .
+```
+
+### 安装推理加速
+```
+pip install flash-attn --no-build-isolation
 ```
 
 ### 4. 配置环境变量

@@ -14,10 +14,7 @@ transformers==4.57.3
 accelerate==0.26.1
 # 注意：GPU版本的PyTorch需要从官方仓库安装
 # pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 # torch>=2.0.0
 # torchvision>=0.15.0
 # torchaudio>=2.0.0
-
-# 推理加速
-flash-attn==2.8.3
-q8_kernel==0.5.0
