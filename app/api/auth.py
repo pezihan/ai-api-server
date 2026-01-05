@@ -37,8 +37,7 @@ class Login(Resource):
                     'code': 200,
                     'msg': '登录成功',
                     'data': {
-                        'token': result['token'],
-                        'expire_time': result['expire_time']
+                        'token': result['token']
                     }
                 }, 200
             else:
