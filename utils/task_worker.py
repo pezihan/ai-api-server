@@ -94,6 +94,7 @@ class TaskWorker:
     
             # 更新任务状态为失败
             task_manager.update_task_status(task_id, 'failed', error=str(e))
+            logger.warning(f"任务 {task_id} 执行失败，检测到异常，卸载当前模型")
             model_scheduler.unload_model()
                 
                 
