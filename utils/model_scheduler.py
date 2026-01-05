@@ -341,23 +341,24 @@ class ModelScheduler:
                 if not attr.startswith('_'):
                     try:
                         obj = getattr(self.model_pipeline, attr)
+                        # 直接删除组件引用，不转移到CPU
                         if hasattr(obj, 'to') and callable(obj.to):
-                            # 将模型组件移到CPU（如果不在CPU上）
-                            if hasattr(obj, 'device') and obj.device.type == 'cuda':
-                                obj.to('cpu')
-                            # 清理组件的内部状态
+                            # 对于模型组件，尝试更彻底的清理
                             if hasattr(obj, 'config'):
                                 del obj.config
                             if hasattr(obj, 'state_dict'):
                                 del obj.state_dict
-                        # 尝试释放numpy数组等大对象
-                        if hasattr(obj, '__array__') or hasattr(obj, 'numpy'):
-                            try:
-                                del obj
-                            except Exception as e:
-                                pass
-                        else:
-                            del obj
+                            if hasattr(obj, 'parameters'):
+                                # 清理模型参数
+                                for param in obj.parameters():
+                                    param.data = None
+                                    param.grad = None
+                            if hasattr(obj, 'buffers'):
+                                # 清理模型缓冲区
+                                for buf in obj.buffers():
+                                    buf.data = None
+                        # 直接删除属性引用
+                        delattr(self.model_pipeline, attr)
                     except Exception as e:
                         pass
             
@@ -377,13 +378,21 @@ class ModelScheduler:
         # 注意：不要清理模块的内部属性，这会导致库状态被破坏
         # 只删除模型实例相关的引用和清理系统资源
         
+        # 清理可能存在的全局引用
+        if 'model_pipeline' in globals():
+            del globals()['model_pipeline']
+        if 'pipe' in globals():
+            del globals()['pipe']
+        
         # 强制垃圾回收 - 多次回收确保彻底
-        for i in range(3):
+        for i in range(5):
             gc.collect()
             # 调用循环收集器以处理循环引用
             gc.collect()
+            # 调用生成器收集器
+            gc.enable()
             import time
-            time.sleep(0.2)
+            time.sleep(0.3)  # 增加休眠时间，让系统有更多时间完成清理
         
         self.current_task = None
         self.model_params = {}
