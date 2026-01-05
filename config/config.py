@@ -33,6 +33,6 @@ class Config:
 
     # wan模型目录
     MODEL_DIR = os.environ.get('MODEL_DIR', '/models')
-    WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', './config')
+    WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', './config/wan')
 # 创建配置实例
 config = Config()
