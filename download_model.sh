@@ -64,5 +64,5 @@ modelscope download --model Tongyi-MAI/Z-Image-Turbo \
 
 
 mkdir -p $QWEN_IMAGE_EDIT_MODEL_DIR
-hf download --model ovedrive/Qwen-Image-Edit-2509-4bit \
- --local_dir $QWEN_IMAGE_EDIT_MODEL_DIR
+huggingface-cli download ovedrive/Qwen-Image-Edit-2509-4bit \
+ --local-dir /models/Qwen-Image-Edit-2509-4bit

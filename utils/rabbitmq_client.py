@@ -25,12 +25,12 @@ class RabbitMQClient:
         """初始化RabbitMQ连接，带重联机制"""
         max_retries = 5
         retry_delay = 2
-        
+
         for attempt in range(max_retries):
             try:
                 # 关闭现有连接和通道
                 self._close_connection()
-                
+
                 # 创建连接参数
                 credentials = pika.PlainCredentials(
                     config.RABBITMQ_USERNAME,
@@ -41,13 +41,15 @@ class RabbitMQClient:
                     port=config.RABBITMQ_PORT,
                     virtual_host=config.RABBITMQ_VIRTUAL_HOST,
                     credentials=credentials,
-                    socket_timeout=5
+                    socket_timeout=10,
+                    heartbeat=60,
+                    blocked_connection_timeout=300
                 )
-                
+
                 # 建立连接
                 self.connection = pika.BlockingConnection(self.connection_params)
                 self.channel = self.connection.channel()
-                
+
                 logger.info(f"RabbitMQ连接成功: {config.RABBITMQ_HOST}:{config.RABBITMQ_PORT} (尝试次数: {attempt + 1})")
                 return
             except Exception as e:
@@ -74,19 +76,28 @@ class RabbitMQClient:
         """重连装饰器"""
         @wraps(func)
         def wrapper(self, *args, **kwargs):
-            try:
-                # 检查连接是否有效
-                if not self.connection or self.connection.is_closed or not self.channel or self.channel.is_closed:
-                    logger.warning("RabbitMQ连接已关闭，尝试重新连接")
-                    self._initialize()
-                return func(self, *args, **kwargs)
-            except (pika.exceptions.AMQPConnectionError, pika.exceptions.AMQPChannelError, ConnectionError) as e:
-                logger.warning(f"RabbitMQ连接异常，尝试重新连接: {str(e)}")
-                self._initialize()
-                return func(self, *args, **kwargs)
-            except Exception as e:
-                log_error(e, "RabbitMQClient", f"{func.__name__} {args} {kwargs}")
-                raise
+            max_retries = 3
+            retry_delay = 1
+
+            for attempt in range(max_retries):
+                try:
+                    # 检查连接是否有效
+                    if not self.connection or self.connection.is_closed or not self.channel or self.channel.is_closed:
+                        logger.warning("RabbitMQ连接已关闭，尝试重新连接")
+                        self._initialize()
+                    return func(self, *args, **kwargs)
+                except (pika.exceptions.AMQPConnectionError, pika.exceptions.AMQPChannelError,
+                        pika.exceptions.StreamLostError, ConnectionError) as e:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"RabbitMQ连接异常 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # 指数退避
+                    else:
+                        logger.error(f"RabbitMQ操作失败，已达到最大重试次数 ({max_retries}): {str(e)}")
+                        raise
+                except Exception as e:
+                    log_error(e, "RabbitMQClient", f"{func.__name__} {args} {kwargs}")
+                    raise
         return wrapper
     
     @_reconnect_wrapper
