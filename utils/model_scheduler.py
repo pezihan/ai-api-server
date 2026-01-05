@@ -62,7 +62,7 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型 (任务: {current_task}) 加载成功")
                     result_queue.put(ModelMessage('result', msg.task_type, result="success"))
                 except Exception as e:
-                    logger.error(f"模型工作进程加载模型失败: {e}")
+                    logger.exception(f"模型工作进程加载模型失败: {e}")
                     result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
             
             elif msg.msg_type == 'run':
@@ -108,11 +108,11 @@ def model_worker_process(task_queue, result_queue):
                     logger.info("模型工作进程模型卸载完成")
                     result_queue.put(ModelMessage('result', msg.task_type, result="success"))
                 except Exception as e:
-                    logger.error(f"模型工作进程卸载模型失败: {e}")
+                    logger.exception(f"模型工作进程卸载模型失败: {e}")
                     result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
     
     except Exception as e:
-        logger.error(f"模型工作进程异常退出: {e}")
+        logger.exception(f"模型工作进程异常退出: {e}")
     finally:
         # 清理资源
         if model_pipeline is not None:
@@ -451,7 +451,7 @@ class ModelScheduler:
             return self._get_inference_func()
             
         except Exception as e:
-            logger.error(f"加载模型失败: {e}")
+            logger.exception(f"加载模型失败: {e}")
             self._terminate_model_process()
             raise  # 重新抛出异常，确保调用者知道模型加载失败
     
