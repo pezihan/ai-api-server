@@ -158,7 +158,8 @@ class ModelScheduler:
         transformer = QwenImageTransformer2DModel.from_pretrained(
             model_path,
             subfolder="transformer",
-            torch_dtype=torch_dtype
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=False
         )
         if cpu_offload:
             transformer = transformer.to("cpu")
@@ -169,7 +170,8 @@ class ModelScheduler:
         text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
             subfolder="text_encoder",
-            dtype=torch_dtype
+            dtype=torch_dtype,
+            low_cpu_mem_usage=False
         )
         if cpu_offload:
             text_encoder = text_encoder.to("cpu")
