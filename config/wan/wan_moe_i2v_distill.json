@@ -7,6 +7,7 @@
     "self_attn_1_type": "flash_attn2",
     "cross_attn_1_type": "flash_attn2",
     "cross_attn_2_type": "flash_attn2",
+    "rope_type": "torch",
     "sample_guide_scale": [
         3.5,
         3.5
@@ -18,6 +19,7 @@
     "t5_cpu_offload": false,
     "vae_cpu_offload": false,
     "use_image_encoder": false,
+    "boundary": 0.900,
     "boundary_step_index": 2,
     "denoising_step_list": [
         1000,

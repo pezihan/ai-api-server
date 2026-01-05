@@ -2,6 +2,7 @@ import torch
 import os
 import gc
 import sys
+import traceback
 import multiprocessing as mp
 import time
 from utils.logger import logger
@@ -76,7 +77,7 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型工作进程任务完成: {msg.task_type}")
                     result_queue.put(ModelMessage('result', msg.task_type, result=result))
                 except Exception as e:
-                    logger.error(f"模型工作进程运行任务失败: {e}")
+                    logger.error(f"模型工作进程运行任务失败: {e}\n{traceback.format_exc()}")
                     result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
             
             elif msg.msg_type == 'unload':
