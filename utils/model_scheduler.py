@@ -234,6 +234,8 @@ def _load_qwen_i2i_model_worker(params):
         pipe.feature_extractor = None
     else:
         pipe.to(device)
+
+    pipe.transformer.set_attention_backend("flash")
     
     return pipe
 
