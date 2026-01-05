@@ -22,6 +22,8 @@ interface Task {
   result?: TaskResult;
   error?: string;
   is_video?: boolean;
+  render_start_time?: number;
+  render_end_time?: number;
 }
 
 // 任务列表
@@ -48,6 +50,8 @@ defineEmits<{
 
 // 获取任务列表
 const fetchTasks = async () => {
+  // 重置到第一页以确保显示最新任务
+  currentPage.value = 1;
   try {
     isLoading.value = true;
     const response = await get<{total: number; page: number; page_size: number; tasks: Task[]}>(`/task/list?page=${currentPage.value}&page_size=${pageSize.value}`);
@@ -174,6 +178,12 @@ const formatTime = (timeString: string) => {
   return date.toLocaleString('zh-CN');
 };
 
+// 计算渲染耗时（秒）
+const getRenderTime = (task: Task) => {
+  if (!task.render_start_time || !task.render_end_time) return null;
+  return (task.render_end_time - task.render_start_time).toFixed(2);
+};
+
 // 拼接域名到文件路径
 const getFullPath = (path?: string) => {
   if (!path) return '';
@@ -217,6 +227,16 @@ const updateSingleTask = async (taskId: string) => {
     console.error(`更新任务 ${taskId} 失败:`, error);
   }
 };
+
+// 刷新任务列表（用于手动触发）
+const refreshTasks = async () => {
+  await fetchTasks();
+};
+
+// 导出方法供父组件调用
+defineExpose({
+  refreshTasks
+});
 
 // 开始轮询任务状态
 const startPolling = () => {
@@ -294,19 +314,22 @@ onUnmounted(() => {
           <!-- 任务基本信息 -->
           <div class="task-header">
             <div class="task-info">
-              <div class="task-type">
-                {{ getTaskTypeText(task.task_type) }}
-                <span class="video-indicator" v-if="task.is_video">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                  </svg>
-                  视频
-                </span>
-              </div>
-              <div class="task-time">
-                {{ formatTime(task.create_time) }}
-              </div>
+            <div class="task-type">
+              {{ getTaskTypeText(task.task_type) }}
+              <span class="video-indicator" v-if="task.is_video">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                视频
+              </span>
             </div>
+            <div class="task-time">
+              {{ formatTime(task.create_time) }}
+            </div>
+            <div class="render-time" v-if="getRenderTime(task)">
+              渲染耗时: {{ getRenderTime(task) }}秒
+            </div>
+          </div>
             <div class="task-status" :class="getStatusClass(task.status)">
               {{ getStatusText(task.status) }}
             </div>
@@ -497,7 +520,7 @@ onUnmounted(() => {
 }
 
 .task-list-container {
-  width: 400px;
+  width: 800px;
   height: 100vh;
   background-color: var(--bg-color);
   box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
@@ -599,9 +622,8 @@ onUnmounted(() => {
 
 /* 任务列表 */
 .tasks {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  column-count: 2;
+  column-gap: 16px;
 }
 
 .task-item {
@@ -611,6 +633,8 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
+  break-inside: avoid;
+  margin-bottom: 16px;
 }
 
 .task-item:hover {
@@ -660,6 +684,13 @@ onUnmounted(() => {
 .task-time {
   font-size: 13px;
   color: var(--text-helper);
+  font-family: monospace;
+}
+
+.render-time {
+  font-size: 12px;
+  color: var(--success-color);
+  font-weight: 500;
   font-family: monospace;
 }
 

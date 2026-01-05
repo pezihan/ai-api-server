@@ -20,8 +20,6 @@ const formData = reactive({
   prompt: '',
   negative_prompt: '',
   seed: Math.floor(Math.random() * 1000000),
-  steps: 9,
-  guidance_scale: 5.0,
   width: 512,
   height: 512,
   num_frames: 81,
@@ -36,11 +34,18 @@ const imagePreviewUrl = ref('');
 const isGenerating = ref(false);
 const generationMessage = ref('');
 
-// 视频宽高映射
+// 宽高比映射（根据生成类型）
 const aspectRatioMap = {
-  vertical: { width: 480, height: 832 },
-  horizontal: { width: 832, height: 480 },
-  square: { width: 640, height: 640 }
+  image: {
+    vertical: { width: 512, height: 768 },
+    horizontal: { width: 768, height: 512 },
+    square: { width: 512, height: 512 }
+  },
+  video: {
+    vertical: { width: 480, height: 832 },
+    horizontal: { width: 832, height: 480 },
+    square: { width: 640, height: 640 }
+  }
 };
 
 // 监听生成模式变化，自动更新生成类型
@@ -49,6 +54,14 @@ watch(generateMode, (newMode) => {
   if (selectedType) {
     generateType.value = selectedType.type;
   }
+});
+
+// 监听生成类型变化，自动应用对应类型的宽高比
+watch(generateType, () => {
+  // 应用当前宽高比对应的宽高值
+  const currentRatio = formData.aspect_ratio;
+  formData.width = aspectRatioMap[generateType.value][currentRatio as keyof typeof aspectRatioMap[typeof generateType.value]].width;
+  formData.height = aspectRatioMap[generateType.value][currentRatio as keyof typeof aspectRatioMap[typeof generateType.value]].height;
 });
 
 // 处理图片上传
@@ -67,12 +80,17 @@ const clearUploadedImage = () => {
   imagePreviewUrl.value = '';
 };
 
-// 切换视频宽高比
+// 切换宽高比
 const changeAspectRatio = (ratio: string) => {
   formData.aspect_ratio = ratio;
-  formData.width = aspectRatioMap[ratio as keyof typeof aspectRatioMap].width;
-  formData.height = aspectRatioMap[ratio as keyof typeof aspectRatioMap].height;
+  formData.width = aspectRatioMap[generateType.value][ratio as keyof typeof aspectRatioMap[typeof generateType.value]].width;
+  formData.height = aspectRatioMap[generateType.value][ratio as keyof typeof aspectRatioMap[typeof generateType.value]].height;
 };
+
+// 定义事件
+const emit = defineEmits<{
+  (e: 'task-submitted'): void;
+}>();
 
 // 提交生成请求
 const submitGeneration = async () => {
@@ -87,8 +105,6 @@ const submitGeneration = async () => {
         prompt: formData.prompt,
         negative_prompt: formData.negative_prompt,
         seed: formData.seed,
-        steps: formData.steps,
-        guidance_scale: formData.guidance_scale,
         width: formData.width,
         height: formData.height
       };
@@ -98,6 +114,8 @@ const submitGeneration = async () => {
 
       if (response.success && response.data) {
         generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+        // 触发任务提交成功事件
+        emit('task-submitted');
       } else {
         generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
       }
@@ -129,8 +147,6 @@ const submitGeneration = async () => {
         prompt: formData.prompt,
         negative_prompt: formData.negative_prompt,
         seed: formData.seed,
-        steps: formData.steps,
-        guidance_scale: formData.guidance_scale,
         width: formData.width,
         height: formData.height,
         image_path: uploadResponse.data.file_path
@@ -141,6 +157,8 @@ const submitGeneration = async () => {
 
       if (response.success && response.data) {
         generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+        // 触发任务提交成功事件
+        emit('task-submitted');
       } else {
         generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
       }
@@ -154,7 +172,6 @@ const submitGeneration = async () => {
         prompt: formData.prompt,
         negative_prompt: formData.negative_prompt,
         seed: formData.seed,
-        steps: formData.steps,
         width: formData.width,
         height: formData.height,
         num_frames: formData.num_frames
@@ -165,6 +182,8 @@ const submitGeneration = async () => {
 
       if (response.success && response.data) {
         generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+        // 触发任务提交成功事件
+        emit('task-submitted');
       } else {
         generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
       }
@@ -196,7 +215,6 @@ const submitGeneration = async () => {
         prompt: formData.prompt,
         negative_prompt: formData.negative_prompt,
         seed: formData.seed,
-        steps: formData.steps,
         width: formData.width,
         height: formData.height,
         num_frames: formData.num_frames,
@@ -208,6 +226,8 @@ const submitGeneration = async () => {
 
       if (response.success && response.data) {
         generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+        // 触发任务提交成功事件
+        emit('task-submitted');
       } else {
         generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
       }
@@ -331,11 +351,11 @@ const regenerate = () => {
         </div>
       </div>
 
-      <!-- 宽高比选择（仅视频生成） -->
-      <div class="form-group" v-if="generateType === 'video'">
+      <!-- 宽高比选择（除图生视频外） -->
+      <div class="form-group" v-if="generateMode !== 'img2video'">
         <div class="form-label-container">
-          <label class="form-label">视频比例</label>
-          <span class="label-helper">选择生成视频的宽高比例</span>
+          <label class="form-label">{{ generateType === 'video' ? '视频比例' : '图片比例' }}</label>
+          <span class="label-helper">选择生成{{ generateType === 'video' ? '视频' : '图片' }}的宽高比例</span>
         </div>
         <div class="aspect-buttons">
           <button
@@ -343,7 +363,7 @@ const regenerate = () => {
             :class="{ active: formData.aspect_ratio === 'vertical' }"
             @click="changeAspectRatio('vertical')"
             :disabled="isGenerating"
-            title="竖屏 (480x832)"
+            :title="`竖屏 (${aspectRatioMap[generateType][formData.aspect_ratio].width}x${aspectRatioMap[generateType][formData.aspect_ratio].height})`"
           >
             <div class="aspect-icon vertical"></div>
             <span>竖屏</span>
@@ -353,7 +373,7 @@ const regenerate = () => {
             :class="{ active: formData.aspect_ratio === 'horizontal' }"
             @click="changeAspectRatio('horizontal')"
             :disabled="isGenerating"
-            title="横屏 (832x480)"
+            :title="`横屏 (${aspectRatioMap[generateType][formData.aspect_ratio].width}x${aspectRatioMap[generateType][formData.aspect_ratio].height})`"
           >
             <div class="aspect-icon horizontal"></div>
             <span>横屏</span>
@@ -363,7 +383,7 @@ const regenerate = () => {
             :class="{ active: formData.aspect_ratio === 'square' }"
             @click="changeAspectRatio('square')"
             :disabled="isGenerating"
-            title="方形 (640x640)"
+            :title="`方形 (${aspectRatioMap[generateType][formData.aspect_ratio].width}x${aspectRatioMap[generateType][formData.aspect_ratio].height})`"
           >
             <div class="aspect-icon square"></div>
             <span>方形</span>

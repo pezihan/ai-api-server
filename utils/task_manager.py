@@ -160,6 +160,33 @@ class TaskManager:
         logger.info(f"任务重新加入RabbitMQ队列: {task_id}")
         return True
     
+    def update_task_render_time(self, task_id, time_type, timestamp):
+        """
+        更新任务渲染时间戳
+        
+        Args:
+            task_id: str, 任务ID
+            time_type: str, 时间类型 ('start' 或 'end')
+            timestamp: float, 时间戳
+        """
+        task_info = self.get_task(task_id)
+        if not task_info:
+            logger.warning(f"任务不存在: {task_id}")
+            return False
+        
+        if time_type == 'start':
+            task_info['render_start_time'] = timestamp
+        elif time_type == 'end':
+            task_info['render_end_time'] = timestamp
+        else:
+            logger.warning(f"无效的时间类型: {time_type}")
+            return False
+        
+        # 更新任务信息到Redis Hash
+        self.redis.hset(self.task_info_hash_key, task_id, json.dumps(task_info))
+        logger.info(f"更新任务渲染时间: {task_id}, 类型: {time_type}, 时间戳: {timestamp}")
+        return True
+    
     def delete_task(self, task_id):
         """
         删除任务

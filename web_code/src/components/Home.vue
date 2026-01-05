@@ -6,10 +6,31 @@ import TaskList from './TaskList.vue';
 
 // 控制任务列表侧边栏的显示
 const showTaskList = ref(false);
+// 任务列表组件引用
+const taskListRef = ref<InstanceType<typeof TaskList> | null>(null);
 
 // 切换任务列表显示
 const toggleTaskList = () => {
   showTaskList.value = !showTaskList.value;
+};
+
+// 处理任务提交成功事件，刷新任务列表
+const handleTaskSubmitted = () => {
+  if (taskListRef.value) {
+    // 如果任务列表已显示，直接刷新
+    if (showTaskList.value) {
+      taskListRef.value.refreshTasks();
+    } else {
+      // 如果任务列表未显示，先显示再刷新
+      showTaskList.value = true;
+      // 延迟刷新，确保组件已挂载
+      setTimeout(() => {
+        if (taskListRef.value) {
+          taskListRef.value.refreshTasks();
+        }
+      }, 100);
+    }
+  }
 };
 </script>
 
@@ -28,7 +49,7 @@ const toggleTaskList = () => {
     </button>
 
     <!-- 任务列表侧边栏 -->
-    <TaskList v-if="showTaskList" @close="showTaskList = false" />
+    <TaskList v-if="showTaskList" ref="taskListRef" @close="showTaskList = false" />
 
     <!-- 主内容区域 -->
     <div class="main-content">
@@ -37,7 +58,7 @@ const toggleTaskList = () => {
       
       <!-- 生成参数面板 -->
       <div class="generate-panel-container">
-        <GeneratePanel />
+        <GeneratePanel @task-submitted="handleTaskSubmitted" />
       </div>
       
       <!-- 结果展示区域 -->

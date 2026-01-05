@@ -44,6 +44,10 @@ class TaskWorker:
 
                 # 更新任务状态为处理中
                 task_manager.update_task_status(task_id, 'processing')
+                
+                # 记录渲染开始时间
+                render_start_time = time.time()
+                task_manager.update_task_render_time(task_id, 'start', render_start_time)
 
                 # 执行任务
                 self._process_task(task_id, task_info)
@@ -113,12 +117,20 @@ class TaskWorker:
             else:
                 raise ValueError(f"不支持的任务类型: {task_type}")
             
+            # 记录渲染结束时间
+            render_end_time = time.time()
+            task_manager.update_task_render_time(task_id, 'end', render_end_time)
+            
             # 更新任务状态为完成
             task_manager.update_task_status(task_id, 'completed', result)
             logger.info(f"任务处理完成: {task_id}")
 
         except Exception as e:
             logger.error(f"处理任务 {task_id} 失败: {e}")
+            
+            # 即使任务失败，也记录渲染结束时间
+            render_end_time = time.time()
+            task_manager.update_task_render_time(task_id, 'end', render_end_time)
     
             # 更新任务状态为失败
             task_manager.update_task_status(task_id, 'failed', error=str(e))
