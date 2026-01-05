@@ -1,6 +1,7 @@
 import time
 import os
 import base64
+import pika
 from PIL import Image
 import torch
 import cv2
