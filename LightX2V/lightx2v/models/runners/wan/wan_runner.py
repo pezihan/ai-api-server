@@ -8,27 +8,27 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from loguru import logger
 
-from lightx2v.models.input_encoders.hf.wan.t5.model import T5EncoderModel
-from lightx2v.models.input_encoders.hf.wan.xlm_roberta.model import CLIPModel
-from lightx2v.models.networks.wan.lora_adapter import WanLoraWrapper
-from lightx2v.models.networks.wan.model import WanModel
-from lightx2v.models.runners.default_runner import DefaultRunner
-from lightx2v.models.schedulers.wan.changing_resolution.scheduler import (
+from LightX2V.lightx2v.models.input_encoders.hf.wan.t5.model import T5EncoderModel
+from LightX2V.lightx2v.models.input_encoders.hf.wan.xlm_roberta.model import CLIPModel
+from LightX2V.lightx2v.models.networks.wan.lora_adapter import WanLoraWrapper
+from LightX2V.lightx2v.models.networks.wan.model import WanModel
+from LightX2V.lightx2v.models.runners.default_runner import DefaultRunner
+from LightX2V.lightx2v.models.schedulers.wan.changing_resolution.scheduler import (
     WanScheduler4ChangingResolutionInterface,
 )
-from lightx2v.models.schedulers.wan.feature_caching.scheduler import (
+from LightX2V.lightx2v.models.schedulers.wan.feature_caching.scheduler import (
     WanSchedulerCaching,
     WanSchedulerTaylorCaching,
 )
-from lightx2v.models.schedulers.wan.scheduler import WanScheduler
-from lightx2v.models.video_encoders.hf.wan.vae import WanVAE
-from lightx2v.models.video_encoders.hf.wan.vae_2_2 import Wan2_2_VAE
-from lightx2v.models.video_encoders.hf.wan.vae_tiny import Wan2_2_VAE_tiny, WanVAE_tiny
-from lightx2v.server.metrics import monitor_cli
-from lightx2v.utils.envs import *
-from lightx2v.utils.profiler import *
-from lightx2v.utils.registry_factory import RUNNER_REGISTER
-from lightx2v.utils.utils import *
+from LightX2V.lightx2v.models.schedulers.wan.scheduler import WanScheduler
+from LightX2V.lightx2v.models.video_encoders.hf.wan.vae import WanVAE
+from LightX2V.lightx2v.models.video_encoders.hf.wan.vae_2_2 import Wan2_2_VAE
+from LightX2V.lightx2v.models.video_encoders.hf.wan.vae_tiny import Wan2_2_VAE_tiny, WanVAE_tiny
+from LightX2V.lightx2v.server.metrics import monitor_cli
+from LightX2V.lightx2v.utils.envs import *
+from LightX2V.lightx2v.utils.profiler import *
+from LightX2V.lightx2v.utils.registry_factory import RUNNER_REGISTER
+from LightX2V.lightx2v.utils.utils import *
 from lightx2v_platform.base.global_var import AI_DEVICE
 
 

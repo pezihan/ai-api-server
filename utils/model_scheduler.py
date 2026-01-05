@@ -239,20 +239,43 @@ def _load_qwen_i2i_model_worker(params):
 
 def _load_wan_t2v_model_worker(params):
     """工作进程内部加载wan文生视频模型"""
-    from utils.wan import WanPipeRunner
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
+    try:
+        logging.info("开始导入 utils.wan")
+        from utils.wan import WanPipeRunner
+        logging.info("utils.wan 导入成功")
+    except Exception as e:
+        logging.error(f"导入 utils.wan 失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
     model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
     model_cls = params.get('model_cls', "wan2.1_distill")
     
-    pipe = WanPipeRunner(
-        model_path=model_path,
-        config_json_path=model_config_path,
-        model_cls=model_cls,
-        task="t2v"
-    )
-    pipe.load()
-    return pipe
+    logging.info(f"模型加载参数: model_path={model_path}, model_config_path={model_config_path}, model_cls={model_cls}")
+    
+    try:
+        pipe = WanPipeRunner(
+            model_path=model_path,
+            config_json_path=model_config_path,
+            model_cls=model_cls,
+            task="t2v"
+        )
+        logging.info("WanPipeRunner 初始化成功")
+        
+        logging.info("开始加载模型...")
+        pipe.load()
+        logging.info("模型加载成功")
+        return pipe
+    except Exception as e:
+        logging.error(f"模型加载失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def _load_wan_i2v_model_worker(params):
     """工作进程内部加载wan图生视频模型"""

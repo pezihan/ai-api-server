@@ -1,7 +1,12 @@
 import os
+import sys
 import random
 from pathlib import Path
 from argparse import Namespace
+
+# 添加项目根目录到 Python 路径
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
 
 import torch
 import torch.distributed as dist
@@ -12,6 +17,18 @@ from LightX2V.lightx2v.models.runners.qwen_image.qwen_image_runner import QwenIm
 from LightX2V.lightx2v.models.runners.wan.wan_animate_runner import WanAnimateRunner  # noqa: F401
 from LightX2V.lightx2v.models.runners.wan.wan_audio_runner import Wan22AudioRunner, WanAudioRunner  # noqa: F401
 from LightX2V.lightx2v.models.runners.wan.wan_distill_runner import WanDistillRunner  # noqa: F401
+# 手动注册 wan2.1_distill 以确保它在注册器中
+from LightX2V.lightx2v.utils.registry_factory import RUNNER_REGISTER
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# 检查并手动注册
+if 'wan2.1_distill' not in RUNNER_REGISTER:
+    RUNNER_REGISTER.register(WanDistillRunner, key='wan2.1_distill')
+    logging.info("手动注册 'wan2.1_distill' 到 RUNNER_REGISTER")
+
+logging.info(f"WAN 模块导入后，RUNNER_REGISTER 中的键: {list(RUNNER_REGISTER.keys())}")
+logging.info(f"'wan2.1_distill' 是否在注册器中: {'wan2.1_distill' in RUNNER_REGISTER}")
 from LightX2V.lightx2v.models.runners.wan.wan_matrix_game2_runner import WanSFMtxg2Runner  # noqa: F401
 from LightX2V.lightx2v.models.runners.wan.wan_runner import Wan22MoeRunner, WanRunner  # noqa: F401
 from LightX2V.lightx2v.models.runners.wan.wan_sf_runner import WanSFRunner  # noqa: F401
@@ -45,6 +62,12 @@ class WanPipeRunner:
       use_prompt_enhancer=self.use_prompt_enhancer,
     )
     self.config: LockableDict = set_config(args)
+    
+    # 调试信息
+    logging.info(f"set_config 返回的 config: {self.config}")
+    logging.info(f"config 中的 model_cls: {self.config['model_cls']}")
+    logging.info(f"RUNNER_REGISTER 中的键: {list(RUNNER_REGISTER.keys())}")
+    
     if self.config["parallel"]:
       dist.init_process_group(backend="nccl")
       torch.cuda.set_device(dist.get_rank())
@@ -52,7 +75,10 @@ class WanPipeRunner:
     print_config(self.config)
 
     torch.set_grad_enabled(False)
-    self.runner = RUNNER_REGISTER[self.config["model_cls"]](self.config)
+    # 确保使用的是正确的 model_cls
+    model_cls = self.config["model_cls"]
+    logging.info(f"正在从 RUNNER_REGISTER 中获取: {model_cls}")
+    self.runner = RUNNER_REGISTER[model_cls](self.config)
     self.runner.init_modules()
 
   def infer(

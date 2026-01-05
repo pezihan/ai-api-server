@@ -30,7 +30,10 @@ class Register(dict):
         self._dict[key] = value
 
     def __getitem__(self, key):
-        return self._dict[key]
+        try:
+            return self._dict[key]
+        except KeyError:
+            raise KeyError(f"'{key}' 不在注册器中。可用的键: {list(self._dict.keys())}")
 
     def __contains__(self, key):
         return key in self._dict
