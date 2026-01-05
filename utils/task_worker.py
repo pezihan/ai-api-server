@@ -48,8 +48,7 @@ class TaskWorker:
                 
             except Exception as e:
                 logger.error(f"处理任务时发生异常: {e}")
-                # 任务处理失败，重新入队
-                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
         
         # 使用RabbitMQ的消息监听机制
         rabbitmq_client.consume_messages(
@@ -94,7 +93,8 @@ class TaskWorker:
     
             # 更新任务状态为失败
             task_manager.update_task_status(task_id, 'failed', error=str(e))
-            logger.warning(f"任务 {task_id} 执行失败，检测到异常，卸载当前模型")
+            # 只有在检测到内存溢出错误时才卸载模型
+            logger.warning(f"任务 {task_id} 执行失败，卸载当前模型")
             model_scheduler.unload_model()
                 
                 

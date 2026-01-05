@@ -2,11 +2,287 @@ import torch
 import os
 import gc
 import sys
+import multiprocessing as mp
+import time
 from utils.logger import logger
 from config.config import config
 
+# 定义进程间通信的消息类型
+class ModelMessage:
+    """模型进程间通信消息"""
+    def __init__(self, msg_type, task_type=None, params=None, result=None, error=None):
+        self.msg_type = msg_type  # 'load', 'run', 'unload', 'exit', 'result', 'error'
+        self.task_type = task_type
+        self.params = params
+        self.result = result
+        self.error = error
+
+# 模型工作进程函数
+def model_worker_process(task_queue, result_queue):
+    """模型工作进程，负责加载和运行模型"""
+    import torch
+    from utils.logger import logger
+    from config.config import config
+    
+    # 重定向日志
+    logger.info("模型工作进程启动")
+    
+    current_task = None
+    model_pipeline = None
+    
+    try:
+        while True:
+            # 获取任务消息
+            msg = task_queue.get()
+            
+            if msg.msg_type == 'exit':
+                logger.info("收到退出消息，模型工作进程将退出")
+                break
+            
+            elif msg.msg_type == 'load':
+                # 加载模型
+                try:
+                    logger.info(f"模型工作进程加载模型: {msg.task_type}")
+                    
+                    # 根据任务类型加载不同模型
+                    if msg.task_type == 'text2img':
+                        model_pipeline = _load_zimage_t2i_model_worker(msg.params)
+                    elif msg.task_type == 'img2img':
+                        model_pipeline = _load_qwen_i2i_model_worker(msg.params)
+                    elif msg.task_type == 'text2video':
+                        model_pipeline = _load_wan_t2v_model_worker(msg.params)
+                    elif msg.task_type == 'img2video':
+                        model_pipeline = _load_wan_i2v_model_worker(msg.params)
+                    
+                    current_task = msg.task_type
+                    logger.info(f"模型 (任务: {current_task}) 加载成功")
+                    result_queue.put(ModelMessage('result', msg.task_type, result="success"))
+                except Exception as e:
+                    logger.error(f"模型工作进程加载模型失败: {e}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+            
+            elif msg.msg_type == 'run':
+                # 运行模型
+                try:
+                    logger.info(f"模型工作进程运行任务: {msg.task_type}")
+                    if model_pipeline is None:
+                        raise RuntimeError("模型未加载")
+                    
+                    # 执行推理
+                    result = model_pipeline(**msg.params)
+                    logger.info(f"模型工作进程任务完成: {msg.task_type}")
+                    result_queue.put(ModelMessage('result', msg.task_type, result=result))
+                except Exception as e:
+                    logger.error(f"模型工作进程运行任务失败: {e}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+            
+            elif msg.msg_type == 'unload':
+                # 卸载模型
+                try:
+                    logger.info(f"模型工作进程卸载模型: {current_task}")
+                    if model_pipeline is not None:
+                        if hasattr(model_pipeline, 'cleanup'):
+                            model_pipeline.cleanup()
+                        del model_pipeline
+                        model_pipeline = None
+                    current_task = None
+                    
+                    # 清理GPU显存
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.ipc_collect()
+                        torch.cuda.synchronize()
+                    
+                    # 清理内存
+                    gc.collect()
+                    logger.info("模型工作进程模型卸载完成")
+                    result_queue.put(ModelMessage('result', msg.task_type, result="success"))
+                except Exception as e:
+                    logger.error(f"模型工作进程卸载模型失败: {e}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+    
+    except Exception as e:
+        logger.error(f"模型工作进程异常退出: {e}")
+    finally:
+        # 清理资源
+        if model_pipeline is not None:
+            del model_pipeline
+        
+        # 清理GPU显存
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+            torch.cuda.synchronize()
+        
+        # 清理内存
+        gc.collect()
+        
+        logger.info("模型工作进程已退出并清理资源")
+
+# 工作进程内部的模型加载函数
+def _load_zimage_t2i_model_worker(params):
+    """工作进程内部加载z-image文生图模型"""
+    from modelscope import ZImagePipeline
+    import torch
+    
+    cpu_offload = _is_cpu_offload_enabled_image_worker()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.bfloat16
+    model_path = params.get('model_path', "Tongyi-MAI/Z-Image-Turbo")
+    
+    pipe = ZImagePipeline.from_pretrained(
+        model_path,
+        torch_dtype=torch_dtype
+    )
+    pipe.transformer.set_attention_backend("flash")
+    
+    # 启用CPU卸载（节省显存）
+    if cpu_offload:
+        pipe.enable_model_cpu_offload()
+    else:
+        pipe.to(device)
+    
+    return pipe
+
+def _load_qwen_i2i_model_worker(params):
+    """工作进程内部加载qwen图生图模型"""
+    from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
+    from transformers import Qwen2_5_VLForConditionalGeneration
+    import math
+    import torch
+    
+    cpu_offload = _is_cpu_offload_enabled_image_worker()
+    model_path = params.get('model_path', "Qwen/Qwen-Image-Edit-2511")
+    max_side_length = params.get('max_side_length', 896)
+    use_lighting = params.get('use_lighting', False)
+    
+    # 设备配置
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.bfloat16
+    
+    # 加载transformer组件
+    transformer = QwenImageTransformer2DModel.from_pretrained(
+        model_path,
+        subfolder="transformer",
+        torch_dtype=torch_dtype
+    )
+    if cpu_offload:
+        transformer = transformer.to("cpu")
+    else:
+        transformer.to(device)
+    
+    # 加载text_encoder组件
+    text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        model_path,
+        subfolder="text_encoder",
+        dtype=torch_dtype
+    )
+    if cpu_offload:
+        text_encoder = text_encoder.to("cpu")
+    else:
+        text_encoder.to(device)
+    
+    # 加载调度器和pipeline
+    if use_lighting:
+        scheduler_config = {
+            "base_image_seq_len": 256,
+            "base_shift": math.log(3),
+            "invert_sigmas": False,
+            "max_image_seq_len": 8192,
+            "max_shift": math.log(3),
+            "num_train_timesteps": 1000,
+            "shift": 1.0,
+            "shift_terminal": None,
+            "stochastic_sampling": False,
+            "time_shift_type": "exponential",
+            "use_beta_sigmas": False,
+            "use_dynamic_shifting": True,
+            "use_exponential_sigmas": False,
+            "use_karras_sigmas": False,
+        }
+        scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+        
+        pipe = QwenImageEditPlusPipeline.from_pretrained(
+            model_path,
+            local_files_only=True,
+            torch_dtype=torch_dtype,
+            transformer=transformer,
+            text_encoder=text_encoder,
+            scheduler=scheduler
+        )
+    else:
+        pipe = QwenImageEditPlusPipeline.from_pretrained(
+            model_path,
+            local_files_only=True,
+            torch_dtype=torch_dtype,
+            transformer=transformer,
+            text_encoder=text_encoder
+        )
+    
+    # 启用CPU卸载（节省显存）
+    if cpu_offload:
+        pipe.enable_model_cpu_offload()
+        pipe.vae.enable_slicing()
+        pipe.vae.enable_tiling()
+        pipe.safety_checker = None
+        pipe.feature_extractor = None
+    else:
+        pipe.to(device)
+    
+    return pipe
+
+def _load_wan_t2v_model_worker(params):
+    """工作进程内部加载wan文生视频模型"""
+    from wan import WanPipeRunner
+    
+    model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
+    model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
+    model_cls = params.get('model_cls', "wan2.1_distill")
+    
+    pipe = WanPipeRunner(
+        model_path=model_path,
+        config_json_path=model_config_path,
+        model_cls=model_cls,
+        task="t2v"
+    )
+    pipe.load()
+    return pipe
+
+def _load_wan_i2v_model_worker(params):
+    """工作进程内部加载wan图生视频模型"""
+    from wan import WanPipeRunner
+    
+    model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.2-Distill-Models"))
+    model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
+    model_cls = params.get('model_cls', "wan2.2_moe")
+    
+    pipe = WanPipeRunner(
+        model_path=model_path,
+        config_json_path=model_config_path,
+        model_cls=model_cls,
+        task="i2v"
+    )
+    pipe.load()
+    return pipe
+
+def _is_cpu_offload_enabled_image_worker() -> bool:
+    """工作进程内部判断是否需要开启 CPU 卸载功能"""
+    if not torch.cuda.is_available():
+        return False
+    
+    gpu_count = torch.cuda.device_count()
+    main_gpu_index = 0
+    if main_gpu_index >= gpu_count:
+        return False
+    
+    gpu_properties = torch.cuda.get_device_properties(main_gpu_index)
+    total_memory_bytes = gpu_properties.total_memory
+    total_memory_gb = total_memory_bytes / (1024 ** 3)
+    
+    return total_memory_gb < 32.0
+
 class ModelScheduler:
-    """模型调度器，管理qwen和wan模型的加载和卸载，避免显存溢出"""
+    """基于进程隔离的模型调度器，管理qwen和wan模型的加载和卸载"""
     
     _instance = None
     
@@ -18,9 +294,17 @@ class ModelScheduler:
     
     def _init(self):
         """初始化模型调度器"""
-        self.current_task = None  # 当前模型的任务类型: None, 'text2img', 'img2img', 'text2video', 'img2video'
-        self.model_pipeline = None  # 当前模型的pipeline实例
+        self.current_task = None  # 当前模型的任务类型
         self.model_params = {}  # 当前模型的参数
+        
+        # 进程相关
+        self.model_process = None  # 模型工作进程
+        self.task_queue = None  # 任务队列
+        self.result_queue = None  # 结果队列
+        
+        # 确保multiprocessing以fork模式启动（适用于Linux/Mac）
+        if sys.platform != 'win32':
+            mp.set_start_method('fork', force=True)
 
     def is_cpu_offload_enabled_image(self) -> bool:
         """
@@ -60,6 +344,75 @@ class ModelScheduler:
             print(f"提示：主 GPU（索引 {main_gpu_index}）显存为 {total_memory_gb:.2f} GB（≥ 32GB），无需开启 CPU 卸载")
             return False
 
+    def _create_model_process(self):
+        """创建模型工作进程"""
+        logger.info("创建模型工作进程")
+        
+        # 创建进程间通信队列
+        self.task_queue = mp.Queue()
+        self.result_queue = mp.Queue()
+        
+        # 创建并启动工作进程
+        self.model_process = mp.Process(
+            target=model_worker_process,
+            args=(self.task_queue, self.result_queue)
+        )
+        self.model_process.daemon = True  # 设置为守护进程
+        self.model_process.start()
+        
+        logger.info(f"模型工作进程已启动，PID: {self.model_process.pid}")
+    
+    def _terminate_model_process(self):
+        """终止模型工作进程"""
+        if self.model_process is not None and self.model_process.is_alive():
+            logger.info(f"终止模型工作进程，PID: {self.model_process.pid}")
+            
+            # 尝试优雅退出
+            try:
+                self.task_queue.put(ModelMessage('exit'))
+                # 等待进程退出
+                self.model_process.join(timeout=5)
+            except Exception as e:
+                logger.warning(f"优雅终止模型工作进程失败: {e}")
+            
+            # 强制终止
+            if self.model_process.is_alive():
+                logger.warning("模型工作进程未能优雅退出，将强制终止")
+                self.model_process.terminate()
+                self.model_process.join(timeout=3)
+            
+            # 清理队列和进程引用
+            self.task_queue = None
+            self.result_queue = None
+            self.model_process = None
+        
+        self.current_task = None
+        self.model_params = {}
+        logger.info("模型工作进程已终止")
+    
+    def _send_message(self, msg, timeout=60):
+        """发送消息到模型工作进程并等待结果"""
+        if self.model_process is None or not self.model_process.is_alive():
+            raise RuntimeError("模型工作进程未启动")
+        
+        # 发送消息
+        self.task_queue.put(msg)
+        
+        # 等待结果
+        start_time = time.time()
+        while True:
+            if time.time() - start_time > timeout:
+                raise TimeoutError("等待模型工作进程响应超时")
+            
+            if not self.result_queue.empty():
+                return self.result_queue.get()
+            
+            # 检查进程是否还在运行
+            if not self.model_process.is_alive():
+                raise RuntimeError("模型工作进程已意外退出")
+            
+            time.sleep(0.1)
+
     def load_model(self, task_type, **kwargs):
         """
         加载指定类型的模型
@@ -69,7 +422,7 @@ class ModelScheduler:
             **kwargs: 模型加载参数
             
         Returns:
-            pipeline: 加载的模型pipeline实例
+            Callable: 模型推理函数
         """
         # 支持的任务类型
         supported_tasks = ['text2img', 'img2img', 'text2video', 'img2video']
@@ -83,8 +436,7 @@ class ModelScheduler:
         # 检查是否需要加载新模型
         if self.current_task == task_type:
             logger.info(f"模型 (任务: {task_type}) 已加载，直接复用")
-            return self.model_pipeline
-        
+            return self._get_inference_func()
         
         # 如果当前有模型且任务类型不同，则卸载当前模型
         if self.current_task is not None:
@@ -92,176 +444,45 @@ class ModelScheduler:
         
         # 加载新模型
         try:
-            if task_type == 'text2img':
-                self._load_zimage_t2i_model(**kwargs)
-            elif task_type == 'img2img':
-                self._load_qwen_i2i_model(**kwargs)
-            elif task_type == 'text2video':
-                self._load_wan_t2v_model(**kwargs)
-            elif task_type == 'img2video':
-                self._load_wan_i2v_model(**kwargs)
+            # 创建模型工作进程（如果尚未创建）
+            if self.model_process is None or not self.model_process.is_alive():
+                self._create_model_process()
+            
+            # 发送加载模型消息
+            msg = ModelMessage('load', task_type, params=kwargs)
+            result_msg = self._send_message(msg, timeout=300)  # 增加超时时间
+            
+            if result_msg.msg_type == 'error':
+                raise RuntimeError(f"模型加载失败: {result_msg.error}")
             
             self.current_task = task_type
             self.model_params = kwargs
             logger.info(f"模型 (任务: {self.current_task}) 加载成功")
-            return self.model_pipeline
+            return self._get_inference_func()
             
         except Exception as e:
             logger.error(f"加载模型失败: {e}")
-            # 如果是内存不足导致的失败，确保卸载当前模型
-            if "CUDA out of memory" in str(e) or "memory" in str(e).lower():
-                logger.warning(f"模型加载失败，可能是显存溢出导致，清理资源")
-                self.unload_model()
-            raise
+            self._terminate_model_process()
     
-    def _load_zimage_t2i_model(self, **kwargs):
-        """加载z-image文生图模型"""
-        import torch
-        from modelscope import ZImagePipeline
-        cpu_offload = self.is_cpu_offload_enabled_image()
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.bfloat16
-        model_path = kwargs.get('model_path', "Tongyi-MAI/Z-Image-Turbo")
-        logger.info(f"加载z-image文生图模型: {model_path}")
-        pipe = ZImagePipeline.from_pretrained(
-            model_path,
-            torch_dtype=torch_dtype
-        )
-        pipe.transformer.set_attention_backend("flash")
-        # 启用CPU卸载（节省显存）
-        if cpu_offload:
-            pipe.enable_model_cpu_offload()
-        else:
-            pipe.to(device)
-        
-        self.model_pipeline = pipe
-    
-    def _load_qwen_i2i_model(self, **kwargs):
-        """加载qwen图生图模型"""
-        from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
-        from transformers import Qwen2_5_VLForConditionalGeneration
-        import math
-
-        cpu_offload = self.is_cpu_offload_enabled_image()
-        model_path = kwargs.get('model_path', "Qwen/Qwen-Image-Edit-2511")
-        max_side_length = kwargs.get('max_side_length', 896)
-        use_lighting = kwargs.get('use_lighting', False)
-        
-        logger.info(f"加载qwen图生图模型: {model_path}, max_side_length: {max_side_length}, use_lighting: {use_lighting}")
-        
-        # 设备配置
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        torch_dtype = torch.bfloat16
-        
-        # 加载transformer组件
-        transformer = QwenImageTransformer2DModel.from_pretrained(
-            model_path,
-            subfolder="transformer",
-            torch_dtype=torch_dtype
-        )
-        if cpu_offload:
-            transformer = transformer.to("cpu")
-        else:
-            transformer.to(device)
-        
-        # 加载text_encoder组件
-        text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            model_path,
-            subfolder="text_encoder",
-            dtype=torch_dtype
-        )
-        if cpu_offload:
-            text_encoder = text_encoder.to("cpu")
-        else:
-            text_encoder.to(device)
-        
-        # 加载调度器和pipeline
-        if use_lighting:
-            scheduler_config = {
-                "base_image_seq_len": 256,
-                "base_shift": math.log(3),
-                "invert_sigmas": False,
-                "max_image_seq_len": 8192,
-                "max_shift": math.log(3),
-                "num_train_timesteps": 1000,
-                "shift": 1.0,
-                "shift_terminal": None,
-                "stochastic_sampling": False,
-                "time_shift_type": "exponential",
-                "use_beta_sigmas": False,
-                "use_dynamic_shifting": True,
-                "use_exponential_sigmas": False,
-                "use_karras_sigmas": False,
-            }
-            scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+    def _get_inference_func(self):
+        """获取模型推理函数"""
+        def inference(**kwargs):
+            """模型推理函数"""
+            if self.model_process is None or not self.model_process.is_alive():
+                raise RuntimeError("模型工作进程未运行")
             
-            pipe = QwenImageEditPlusPipeline.from_pretrained(
-                model_path,
-                local_files_only=True,
-                torch_dtype=torch_dtype,
-                transformer=transformer,
-                text_encoder=text_encoder,
-                scheduler=scheduler
-            )
-        else:
-            pipe = QwenImageEditPlusPipeline.from_pretrained(
-                model_path,
-                local_files_only=True,
-                torch_dtype=torch_dtype,
-                transformer=transformer,
-                text_encoder=text_encoder
-            )
+            # 发送推理消息
+            msg = ModelMessage('run', self.current_task, params=kwargs)
+            result_msg = self._send_message(msg, timeout=600)  # 增加推理超时时间
+            
+            if result_msg.msg_type == 'error':
+                # 如果是内存错误，终止进程
+                logger.warning(f"推理失败，检测到内存溢出，将终止模型进程")
+                self._terminate_model_process()
+            
+            return result_msg.result
         
-        # 启用CPU卸载（节省显存）
-        if cpu_offload:
-            pipe.enable_model_cpu_offload()
-            pipe.vae.enable_slicing()
-            pipe.vae.enable_tiling()
-            pipe.safety_checker = None
-            pipe.feature_extractor = None
-        else:
-            pipe.to(device)
-        
-        self.model_pipeline = pipe
-    
-    def _load_wan_t2v_model(self, **kwargs):
-        """加载wan文生视频模型"""
-        # 将LightX2V目录添加到Python路径
-        from wan import WanPipeRunner
-
-        model_path = kwargs.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
-        model_config_path = kwargs.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
-        model_cls = kwargs.get('model_cls', "wan2.1_distill")
-        logger.info(f"加载wan文生视频模型: {model_path}, model_cls: {model_cls}")
-        pipe = WanPipeRunner(
-            model_path=model_path,
-            config_json_path=model_config_path,
-            model_cls=model_cls,
-            task="t2v"
-        )
-        pipe.load()
-        self.model_pipeline = pipe
-    
-    def _load_wan_i2v_model(self, **kwargs):
-        """加载wan图生视频模型"""
-        # 将LightX2V目录添加到Python路径
-        from wan import WanPipeRunner
-
-        model_path = kwargs.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.2-Distill-Models"))
-        model_config_path = kwargs.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
-        model_cls = kwargs.get('model_cls', "wan2.2_moe")
-        
-        logger.info(f"加载wan图生视频模型: {model_path}, model_cls: {model_cls}")
-        
-        # 初始化pipeline
-        pipe = WanPipeRunner(
-            model_path=model_path,
-            config_json_path=model_config_path,
-            model_cls=model_cls,
-            task="i2v"
-        )
-        pipe.load()        
-        self.model_pipeline = pipe
+        return inference
     
     def get_gpu_memory_info(self):
         """
@@ -315,7 +536,10 @@ class ModelScheduler:
         }
     
     def unload_model(self):
-        """卸载当前模型，释放显存和内存"""
+        """
+        卸载当前模型，释放显存和内存
+        通过终止模型工作进程来确保完全释放内存和显存
+        """
         if self.current_task is None:
             return
         
@@ -326,93 +550,11 @@ class ModelScheduler:
         logger.info(f"卸载当前模型前CPU内存使用: {cpu_memory_before}")
         logger.info(f"卸载当前模型 (任务: {self.current_task})")
         
-        # 释放模型资源 - 更彻底的清理
-        if self.model_pipeline is not None:
-            # 特殊处理wan模型，确保所有资源都被释放
-            if hasattr(self.model_pipeline, 'cleanup'):
-                try:
-                    self.model_pipeline.cleanup()
-                    logger.info("模型已执行自定义cleanup方法")
-                except Exception as e:
-                    logger.warning(f"执行模型cleanup方法时出错: {e}")
-            
-            # 释放所有可能的子组件
-            for attr in dir(self.model_pipeline):
-                if not attr.startswith('_'):
-                    try:
-                        obj = getattr(self.model_pipeline, attr)
-                        # 直接删除组件引用，不转移到CPU
-                        if hasattr(obj, 'to') and callable(obj.to):
-                            # 对于模型组件，尝试更彻底的清理
-                            if hasattr(obj, 'config'):
-                                del obj.config
-                            if hasattr(obj, 'state_dict'):
-                                del obj.state_dict
-                            if hasattr(obj, 'parameters'):
-                                # 清理模型参数
-                                for param in obj.parameters():
-                                    param.data = None
-                                    param.grad = None
-                            if hasattr(obj, 'buffers'):
-                                # 清理模型缓冲区
-                                for buf in obj.buffers():
-                                    buf.data = None
-                        # 直接删除属性引用
-                        delattr(self.model_pipeline, attr)
-                    except Exception as e:
-                        pass
-            
-            del self.model_pipeline
-            self.model_pipeline = None
-        
-        # 清理GPU显存 - 多次尝试确保清理干净
-        if torch.cuda.is_available():
-            # 1. 首先释放所有模型相关的CUDA资源
-            for i in range(10):  # 增加清理次数
-                # 释放未使用的缓存
-                torch.cuda.empty_cache()
-                # 收集所有死进程的GPU内存
-                torch.cuda.ipc_collect()
-                # 同步所有CUDA操作
-                torch.cuda.synchronize()
-                # 尝试释放所有CUDA内存池
-                torch.cuda.reset_peak_memory_stats()
-                # 短暂休眠让CUDA完成清理
-                import time
-                time.sleep(0.3)  # 进一步延长休眠时间
-
-            # 2. 尝试更激进的方法：遍历所有设备并重置
-            for device_idx in range(torch.cuda.device_count()):
-                try:
-                    # 切换到当前设备
-                    torch.cuda.set_device(device_idx)
-                    torch.cuda.empty_cache()
-                    torch.cuda.synchronize()
-                except Exception as e:
-                    pass
+        # 终止模型工作进程
+        self._terminate_model_process()
         
         # 清理Python引用和CPU内存
-        # 注意：不要清理模块的内部属性，这会导致库状态被破坏
-        # 只删除模型实例相关的引用和清理系统资源
-        
-        # 清理可能存在的全局引用
-        if 'model_pipeline' in globals():
-            del globals()['model_pipeline']
-        if 'pipe' in globals():
-            del globals()['pipe']
-        
-        # 强制垃圾回收 - 多次回收确保彻底
-        for i in range(5):
-            gc.collect()
-            # 调用循环收集器以处理循环引用
-            gc.collect()
-            # 调用生成器收集器
-            gc.enable()
-            import time
-            time.sleep(0.3)  # 增加休眠时间，让系统有更多时间完成清理
-        
-        self.current_task = None
-        self.model_params = {}
+        gc.collect()
         
         # 卸载后记录内存使用情况
         gpu_memory_after = self.get_gpu_memory_info()
@@ -440,8 +582,8 @@ class ModelScheduler:
         """
         return {
             'current_task': self.current_task,
-            'model_pipeline': self.model_pipeline,
-            'model_params': self.model_params
+            'model_params': self.model_params,
+            'process_pid': self.model_process.pid if self.model_process is not None and self.model_process.is_alive() else None
         }
     
     def clear(self):
