@@ -42,6 +42,10 @@ class AuthMiddleware:
         """登录验证装饰器"""
         @wraps(f)
         def decorated(*args, **kwargs):
+            # 跳过OPTIONS请求的认证检查，因为OPTIONS请求是预检请求，不包含Authorization头
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+            
             token = request.headers.get('Authorization')
             
             if not token:
