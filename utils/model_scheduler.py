@@ -483,9 +483,10 @@ class ModelScheduler:
             result_msg = self._send_message(msg, timeout=600)  # 增加推理超时时间
             
             if result_msg.msg_type == 'error':
-                # 如果是内存错误，终止进程
-                logger.warning(f"推理失败，检测到内存溢出，将终止模型进程")
+                # 如果推理失败，终止进程并抛出异常
+                logger.warning(f"推理失败，将终止模型进程: {result_msg.error}")
                 self._terminate_model_process()
+                raise RuntimeError(f"模型推理失败: {result_msg.error}")
             
             return result_msg.result
         
