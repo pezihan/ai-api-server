@@ -158,64 +158,66 @@ def _load_zimage_t2i_model_worker(params):
 
 def _load_qwen_i2i_model_worker(params):
     """工作进程内部加载qwen图生图模型"""
-    from modelscope import QwenImageEditPlusPipeline, QwenImageTransformer2DModel
+    import math
+    from diffusers import (
+        QwenImageEditPlusPipeline,
+        QwenImageTransformer2DModel,
+        FlowMatchEulerDiscreteScheduler,
+    )
+    from transformers import Qwen2_5_VLForConditionalGeneration, Qwen2Tokenizer
     import torch
-    from transformers import Qwen2_5_VLForConditionalGeneration
-    import os
-    import json
 
     cpu_offload = _is_cpu_offload_enabled_image_worker()
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2509-4bit"))
-    
+
     # 设备配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.bfloat16
-    
-    # 添加调试信息，检查模型路径和文件存在性
-    logger.info(f"尝试加载模型，路径: {model_path}")
-    logger.info(f"模型路径存在: {os.path.exists(model_path)}")
-    
-    # 检查tokenizer相关文件
-    tokenizer_files = ['tokenizer.json', 'tokenizer_config.json', 'vocab.json', 'merges.txt']
-    for file in tokenizer_files:
-        file_path = os.path.join(model_path, file)
-        if os.path.exists(file_path):
-            logger.info(f"找到tokenizer文件: {file_path}")
-            # 尝试读取文件内容
-            try:
-                with open(file_path, 'r') as f:
-                    content = f.read()
-                    logger.info(f"文件 {file} 内容长度: {len(content)} 字符")
-                    # 尝试解析JSON
-                    if file.endswith('.json'):
-                        json.loads(content)
-                        logger.info(f"文件 {file} 是有效的JSON")
-            except json.JSONDecodeError as e:
-                logger.error(f"文件 {file} 不是有效的JSON: {e}")
-            except Exception as e:
-                logger.error(f"读取文件 {file} 失败: {e}")
-        else:
-            logger.info(f"未找到tokenizer文件: {file_path}")
 
+    # 加载模型组件
     transformer = QwenImageTransformer2DModel.from_pretrained(
         model_path,
         subfolder="transformer",
         torch_dtype=torch_dtype
     )
+    transformer = transformer.to("cpu")
+
+    # 加载 text_encoder
     text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path,
         subfolder="text_encoder",
         dtype=torch_dtype
     )
+    text_encoder = text_encoder.to("cpu")
+
+    # 加载调度器
+    scheduler_config = {
+        "base_image_seq_len": 256,
+        "base_shift": math.log(3),
+        "invert_sigmas": False,
+        "max_image_seq_len": 8192,
+        "max_shift": math.log(3),
+        "num_train_timesteps": 1000,
+        "shift": 1.0,
+        "shift_terminal": None,
+        "stochastic_sampling": False,
+        "time_shift_type": "exponential",
+        "use_beta_sigmas": False,
+        "use_dynamic_shifting": True,
+        "use_exponential_sigmas": False,
+        "use_karras_sigmas": False,
+    }
+    scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
     pipe = QwenImageEditPlusPipeline.from_pretrained(
         model_path,
         local_files_only=True,
         torch_dtype=torch_dtype,
         transformer=transformer,
-        text_encoder=text_encoder
+        text_encoder=text_encoder,
+        scheduler=scheduler
     )
-    
+
     pipe.set_progress_bar_config(disable=None)
     # 启用CPU卸载（节省显存）
     if cpu_offload:
@@ -224,7 +226,11 @@ def _load_qwen_i2i_model_worker(params):
         pipe.to(device)
 
     pipe.transformer.set_attention_backend("flash")
-    
+    pipe.vae.enable_slicing()
+    pipe.vae.enable_tiling()
+    pipe.safety_checker = None
+    pipe.feature_extractor = None
+
     return pipe
 
 def _load_wan_t2v_model_worker(params):
