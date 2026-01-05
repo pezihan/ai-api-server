@@ -8,6 +8,10 @@ import time
 from utils.logger import logger
 from config.config import config
 
+# Set PyTorch CUDA memory allocation configuration to avoid fragmentation
+if torch.cuda.is_available():
+    os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+
 # 定义进程间通信的消息类型
 class ModelMessage:
     """模型进程间通信消息"""
@@ -159,7 +163,7 @@ def _load_qwen_i2i_model_worker(params):
     from transformers import Qwen2_5_VLForConditionalGeneration
 
     cpu_offload = _is_cpu_offload_enabled_image_worker()
-    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2511"))
+    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2509-4bit"))
     
     # 设备配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -170,13 +174,11 @@ def _load_qwen_i2i_model_worker(params):
         subfolder="transformer",
         torch_dtype=torch_dtype
     )
-    transformer = transformer.to("cpu")
     text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path,
         subfolder="text_encoder",
         dtype=torch_dtype
     )
-    text_encoder = text_encoder.to("cpu")
 
     pipe = QwenImageEditPlusPipeline.from_pretrained(
         model_path,

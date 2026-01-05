@@ -1,7 +1,7 @@
 WAN_21_DISTILL_MODELS_DIR="/models/Wan2.1-Distill-Models"
 WAN_22_DISTILL_MODELS_DIR="/models/Wan2.2-Distill-Models"
 Z_IMAGE_MODEL_DIR="/models/Z-Image-Turbo"
-QWEN_IMAGE_EDIT_MODEL_DIR="/models/Qwen-Image-Edit-2511"
+QWEN_IMAGE_EDIT_MODEL_DIR="/models/Qwen-Image-Edit-2509-4bit"
 
 # 下载Wan2.1-T2V-14B模型
 mkdir -p $WAN_21_DISTILL_MODELS_DIR
@@ -64,5 +64,5 @@ modelscope download --model Tongyi-MAI/Z-Image-Turbo \
 
 
 mkdir -p $QWEN_IMAGE_EDIT_MODEL_DIR
-modelscope download --model Qwen/Qwen-Image-Edit-2511 \
+modelscope download --model Jiangdi/Qwen-Image-Edit-2509-4bit \
  --local_dir $QWEN_IMAGE_EDIT_MODEL_DIR
