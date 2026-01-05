@@ -3,7 +3,7 @@
 // 创建API配置
 const API_CONFIG = {
   // 默认API地址，用户可以在这里修改
-  BASE_URL: 'https://59a7efd42ee84d2db8811534a003270b--5001.ap-shanghai2.cloudstudio.club',
+  BASE_URL: '/api',
   // 请求超时时间
   TIMEOUT: 60000,
   // 默认请求头
@@ -40,7 +40,7 @@ export const apiRequest = async <T = any>(
     const requestConfig: RequestInit = {
       ...config,
       headers: {
-        ...API_CONFIG.DEFAULT_HEADERS,
+        ...(config.headers ? {} : API_CONFIG.DEFAULT_HEADERS),
         ...(config.headers || {})
       }
     };
@@ -56,20 +56,28 @@ export const apiRequest = async <T = any>(
     let requestBody: BodyInit | null = null;
     const contentType = requestConfig.headers && (requestConfig.headers as Record<string, string>)['Content-Type'];
     
-    if (requestConfig.body && contentType === 'application/json' && typeof requestConfig.body === 'object') {
+    if (requestConfig.body && contentType === 'application/json' && typeof requestConfig.body === 'object' && !(requestConfig.body instanceof FormData)) {
       requestBody = JSON.stringify(requestConfig.body);
     } else if (requestConfig.body) {
       requestBody = requestConfig.body;
     }
     
     // 发送请求
-    const response = await fetch(fullUrl, {
+    const fetchConfig: RequestInit = {
       method: requestConfig.method || 'GET',
-      headers: requestConfig.headers,
-      body: requestBody,
       signal: requestConfig.signal,
       credentials: requestConfig.credentials || 'same-origin'
-    });
+    };
+    
+    // 只有当 headers 不为空时才设置 headers 参数
+    if (Object.keys(requestConfig.headers || {}).length > 0) {
+      fetchConfig.headers = requestConfig.headers;
+    }
+    
+    // 设置请求体
+    fetchConfig.body = requestBody;
+    
+    const response = await fetch(fullUrl, fetchConfig);
     
     // 解析响应数据
     let responseData: any;
@@ -166,12 +174,17 @@ export const postForm = <T = any>(
   url: string,
   formData: FormData,
   config: Omit<RequestInit, 'method' | 'body' | 'headers'> = {}): Promise<ApiResponse<T>> => {
+  const token = localStorage.getItem('authToken');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   return apiRequest<T>(url, {
     ...config,
     method: 'POST',
     body: formData,
     // 不要手动设置Content-Type，浏览器会自动设置正确的Content-Type（包括boundary）
-    headers: {}
+    headers
   });
 };
 

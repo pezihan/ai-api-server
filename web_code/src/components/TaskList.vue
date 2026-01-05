@@ -230,6 +230,16 @@ const getRenderTime = (task: Task) => {
   return (task.render_end_time - task.render_start_time).toFixed(2);
 };
 
+// 获取任务横竖方向
+const getTaskOrientation = (task: Task) => {
+  if (!task.params) return '';
+  const width = task.params.width || 0;
+  const height = task.params.height || 0;
+  if (width > height) return '横';
+  if (height > width) return '竖';
+  return '方';
+};
+
 // 拼接域名到文件路径
 const getFullPath = (path?: string) => {
   if (!path) return '';
@@ -362,6 +372,9 @@ onUnmounted(() => {
             <div class="task-info">
             <div class="task-type">
               {{ getTaskTypeText(task.task_type) }}
+              <span class="task-orientation" v-if="getTaskOrientation(task)">
+                {{ getTaskOrientation(task) }}
+              </span>
             </div>
             <div class="task-time">
               {{ formatTime(task.created_at) }}
@@ -758,6 +771,17 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+.task-orientation {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: var(--bg-light);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
 .video-indicator {
   display: flex;
   align-items: center;
@@ -832,18 +856,23 @@ onUnmounted(() => {
   overflow: hidden;
   background-color: var(--bg-light);
   position: relative;
-  min-height: 100px;
+  width: 100%;
+  padding-top: 100%; /* 1:1 宽高比 */
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .task-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 30px 20px;
   color: var(--text-helper);
 }
 
@@ -858,29 +887,46 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
-.task-image img {
-  width: 100%;
-  height: auto;
-  display: block;
+.task-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
   border-radius: var(--radius-md);
 }
 
-.task-video {
+.task-image img {
   width: 100%;
-  position: relative;
+  height: 100%;
+  object-fit: cover; /* 等比例裁剪缩放 */
+  display: block;
+}
+
+.task-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
 }
 
 .video-wrapper {
   position: relative;
   width: 100%;
+  height: 100%;
   cursor: pointer;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .video-cover {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover; /* 等比例裁剪缩放 */
   display: block;
-  border-radius: var(--radius-md);
 }
 
 .video-play-btn {

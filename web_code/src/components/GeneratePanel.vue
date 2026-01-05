@@ -135,7 +135,7 @@ const submitGeneration = async () => {
       formDataForUpload.append('file', uploadedImage.value);
 
       // 发送上传请求
-      const uploadResponse = await postForm<{ file_path: string }>('/upload', formDataForUpload);
+      const uploadResponse = await postForm<{ file_path: string }>('/upload/', formDataForUpload);
 
       if (!uploadResponse.success || !uploadResponse.data?.file_path) {
         generationMessage.value = `图片上传失败: ${uploadResponse.error || '未知错误'}`;
@@ -203,7 +203,7 @@ const submitGeneration = async () => {
       formDataForUpload.append('file', uploadedImage.value);
 
       // 发送上传请求
-      const uploadResponse = await postForm<{ file_path: string }>('/upload', formDataForUpload);
+      const uploadResponse = await postForm<{ file_path: string }>('/upload/', formDataForUpload);
 
       if (!uploadResponse.success || !uploadResponse.data?.file_path) {
         generationMessage.value = `图片上传失败: ${uploadResponse.error || '未知错误'}`;

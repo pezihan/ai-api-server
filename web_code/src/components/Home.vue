@@ -118,7 +118,7 @@ const handleTaskSubmitted = () => {
 
 /* 生成面板容器 */
 .generate-panel-container {
-  padding: 0 24px;
+  padding: 24px;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
