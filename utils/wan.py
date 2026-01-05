@@ -84,8 +84,8 @@ class WanPipeRunner:
   def infer(
     self,
     prompt: str,
-    image_path: str,
-    save_result_path: str,
+    image_path: str | None = None,
+    save_result_path: str = None,
     target_video_length: int | None = None,
     target_height: int | None = None,
     target_width: int | None = None,
