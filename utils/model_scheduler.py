@@ -161,6 +161,8 @@ def _load_qwen_i2i_model_worker(params):
     from modelscope import QwenImageEditPlusPipeline, QwenImageTransformer2DModel
     import torch
     from transformers import Qwen2_5_VLForConditionalGeneration
+    import os
+    import json
 
     cpu_offload = _is_cpu_offload_enabled_image_worker()
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2509-4bit"))
@@ -168,6 +170,32 @@ def _load_qwen_i2i_model_worker(params):
     # 设备配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.bfloat16
+    
+    # 添加调试信息，检查模型路径和文件存在性
+    logger.info(f"尝试加载模型，路径: {model_path}")
+    logger.info(f"模型路径存在: {os.path.exists(model_path)}")
+    
+    # 检查tokenizer相关文件
+    tokenizer_files = ['tokenizer.json', 'tokenizer_config.json', 'vocab.json', 'merges.txt']
+    for file in tokenizer_files:
+        file_path = os.path.join(model_path, file)
+        if os.path.exists(file_path):
+            logger.info(f"找到tokenizer文件: {file_path}")
+            # 尝试读取文件内容
+            try:
+                with open(file_path, 'r') as f:
+                    content = f.read()
+                    logger.info(f"文件 {file} 内容长度: {len(content)} 字符")
+                    # 尝试解析JSON
+                    if file.endswith('.json'):
+                        json.loads(content)
+                        logger.info(f"文件 {file} 是有效的JSON")
+            except json.JSONDecodeError as e:
+                logger.error(f"文件 {file} 不是有效的JSON: {e}")
+            except Exception as e:
+                logger.error(f"读取文件 {file} 失败: {e}")
+        else:
+            logger.info(f"未找到tokenizer文件: {file_path}")
 
     transformer = QwenImageTransformer2DModel.from_pretrained(
         model_path,
