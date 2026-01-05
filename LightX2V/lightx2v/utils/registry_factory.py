@@ -20,7 +20,8 @@ class Register(dict):
             key = target.__name__
 
         if key in self._dict:
-            raise Exception(f"{key} already exists.")
+            # 如果键已经存在，跳过注册（避免多次导入时的重复注册错误）
+            return target
 
         self[key] = target
         return target
@@ -52,7 +53,8 @@ class Register(dict):
     def merge(self, other_register):
         for key, value in other_register.items():
             if key in self._dict:
-                raise Exception(f"{key} already exists in target register.")
+                # 如果键已经存在，跳过注册（避免多次导入时的重复注册错误）
+                continue
             self[key] = value
 
 
