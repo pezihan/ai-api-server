@@ -3,7 +3,7 @@
 // 创建API配置
 const API_CONFIG = {
   // 默认API地址，用户可以在这里修改
-  BASE_URL: 'https://59a7efd42ee84d2db8811534a003270b--5001.ap-shanghai2.cloudstudio.club',
+  BASE_URL: 'http://localhost:5000',
   // 请求超时时间
   TIMEOUT: 60000,
   // 默认请求头

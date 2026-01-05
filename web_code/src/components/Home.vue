@@ -113,7 +113,7 @@ const handleTaskSubmitted = () => {
   overflow-y: auto;
   margin-left: 0;
   transition: margin-left 0.3s ease;
-  padding: 24px 0;
+  /* padding: 24px 0; */
 }
 
 /* 生成面板容器 */

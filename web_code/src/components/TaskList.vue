@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { get, post, del, getApiBaseUrl } from '../utils/api';
-import type { ApiResponse } from '../utils/api';
 
 // 定义任务结果类型
 interface TaskResult {
@@ -16,8 +15,8 @@ interface Task {
   task_id: string;
   task_type: string;
   status: string;
-  create_time: string;
-  update_time: string;
+  created_at: number;
+  updated_at: number;
   params: any;
   result?: TaskResult;
   error?: string;
@@ -36,6 +35,16 @@ const selectedTask = ref<Task | null>(null);
 const showErrorDetails = ref(false);
 // 轮询定时器
 let pollingTimer: number | null = null;
+// 视频元素引用
+const videoRefs = ref<Record<string, HTMLVideoElement | null>>({});
+// 预览模态框状态
+const showPreviewModal = ref(false);
+const previewTask = ref<Task | null>(null);
+
+// 悬浮框状态
+const showTooltip = ref(false);
+const tooltipText = ref('');
+const tooltipPosition = ref({ x: 0, y: 0 });
 
 // 分页相关状态
 const currentPage = ref(1);
@@ -135,6 +144,43 @@ const closeErrorDetails = () => {
   selectedTask.value = null;
 };
 
+// 打开预览模态框
+const openPreviewModal = (task: Task) => {
+  previewTask.value = task;
+  showPreviewModal.value = true;
+};
+
+// 关闭预览模态框
+const closePreviewModal = () => {
+  showPreviewModal.value = false;
+  previewTask.value = null;
+};
+
+// 显示悬浮框
+const showTooltipHandler = (event: MouseEvent, text: string) => {
+  tooltipText.value = text;
+  tooltipPosition.value = {
+    x: event.clientX + 10,
+    y: event.clientY + 10
+  };
+  showTooltip.value = true;
+};
+
+// 隐藏悬浮框
+const hideTooltipHandler = () => {
+  showTooltip.value = false;
+};
+
+// 更新悬浮框位置
+const updateTooltipPosition = (event: MouseEvent) => {
+  if (showTooltip.value) {
+    tooltipPosition.value = {
+      x: event.clientX + 10,
+      y: event.clientY + 10
+    };
+  }
+};
+
 // 获取状态显示文本
 const getStatusText = (status: string) => {
   const statusMap: Record<string, string> = {
@@ -173,8 +219,8 @@ const getTaskTypeText = (taskType: string) => {
 };
 
 // 格式化时间
-const formatTime = (timeString: string) => {
-  const date = new Date(timeString);
+const formatTime = (timestamp: number) => {
+  const date = new Date(timestamp * 1000);
   return date.toLocaleString('zh-CN');
 };
 
@@ -324,7 +370,7 @@ onUnmounted(() => {
               </span>
             </div>
             <div class="task-time">
-              {{ formatTime(task.create_time) }}
+              {{ formatTime(task.created_at) }}
             </div>
             <div class="render-time" v-if="getRenderTime(task)">
               渲染耗时: {{ getRenderTime(task) }}秒
@@ -349,12 +395,12 @@ onUnmounted(() => {
 
             <!-- 图片任务结果 -->
             <div v-else-if="!task.is_video && task.result?.image_path" class="task-image">
-              <img :src="getFullPath(task.result.image_path)" :alt="task.params.prompt" />
+              <img :src="getFullPath(task.result.image_path)" :alt="task.params.prompt" @click="openPreviewModal(task)" style="cursor: pointer;" />
             </div>
 
             <!-- 视频任务结果 -->
             <div v-else-if="task.is_video && task.result?.video_path" class="task-video">
-              <div class="video-wrapper" @click="$refs[`video-${task.task_id}`]?.play()">
+              <div class="video-wrapper" @click="openPreviewModal(task)">
                 <img v-if="task.result.cover_path" :src="getFullPath(task.result.cover_path)" :alt="task.params.prompt" class="video-cover" />
                 <div class="video-play-btn">
                   <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -362,13 +408,20 @@ onUnmounted(() => {
                   </svg>
                 </div>
               </div>
-              <video :ref="`video-${task.task_id}`" :src="getFullPath(task.result.video_path)" controls style="display: none;"></video>
+              <video :ref="el => videoRefs[task.task_id] = el as HTMLVideoElement | null" :src="getFullPath(task.result.video_path)" controls style="display: none;"></video>
             </div>
           </div>
 
           <!-- 任务提示词 -->
-          <div class="task-prompt">
-            {{ task.params.prompt }}
+          <div class="task-prompt-container">
+            <div 
+              class="task-prompt" 
+              @mouseenter="(e) => showTooltipHandler(e, task.params.prompt)"
+              @mouseleave="hideTooltipHandler"
+              @mousemove="updateTooltipPosition"
+            >
+              {{ task.params.prompt }}
+            </div>
           </div>
 
           <!-- 任务操作 -->
@@ -489,6 +542,48 @@ onUnmounted(() => {
           <button class="close-details-btn" @click="closeErrorDetails">关闭</button>
         </div>
       </div>
+    </div>
+
+    <!-- 预览模态框 -->
+    <div class="preview-overlay" v-if="showPreviewModal && previewTask">
+      <div class="preview-modal">
+        <button class="close-preview-btn" @click="closePreviewModal">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <div class="preview-content">
+          <!-- 图片预览 -->
+          <div v-if="!previewTask.is_video && previewTask.result?.image_path" class="preview-image">
+            <img :src="getFullPath(previewTask.result.image_path)" :alt="previewTask.params.prompt" />
+          </div>
+          <!-- 视频预览 -->
+          <div v-else-if="previewTask.is_video && previewTask.result?.video_path" class="preview-video">
+            <video :src="getFullPath(previewTask.result.video_path)" controls autoplay muted></video>
+          </div>
+        </div>
+        <div class="preview-info">
+          <div class="preview-prompt">{{ previewTask.params.prompt }}</div>
+          <div class="preview-meta">
+            <span>{{ getTaskTypeText(previewTask.task_type) }}</span>
+            <span>{{ formatTime(previewTask.created_at) }}</span>
+            <span v-if="getRenderTime(previewTask)">渲染耗时: {{ getRenderTime(previewTask) }}秒</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 悬浮框 -->
+    <div 
+      v-if="showTooltip" 
+      class="tooltip" 
+      :style="{
+        left: tooltipPosition.x + 'px',
+        top: tooltipPosition.y + 'px'
+      }"
+    >
+      {{ tooltipText }}
     </div>
   </div>
 </template>
@@ -622,7 +717,7 @@ onUnmounted(() => {
 
 /* 任务列表 */
 .tasks {
-  column-count: 2;
+  column-count: 3;
   column-gap: 16px;
 }
 
@@ -814,19 +909,47 @@ onUnmounted(() => {
   transform: translate(-50%, -50%) scale(1.1);
 }
 
+.task-prompt-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
 .task-prompt {
   font-size: 13px;
   color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 16px;
+  line-height: 1.5;
   word-break: break-word;
-  max-height: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
+  display: box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
-  padding: 8px 0;
+  box-orient: vertical;
+  cursor: help;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  max-height: 39px; /* 13px * 1.5 * 2 = 39px */
+  min-height: 39px;
+}
+
+.tooltip {
+  position: fixed;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  max-width: 300px;
+  word-wrap: break-word;
+  z-index: 10000;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
 .task-actions {
@@ -1092,5 +1215,128 @@ onUnmounted(() => {
   background-color: var(--primary-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
+}
+
+/* 预览模态框 */
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+}
+
+.preview-modal {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-xl);
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+  overflow: hidden;
+}
+
+.close-preview-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  z-index: 10;
+}
+
+.close-preview-btn:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+.preview-content {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-light);
+  position: relative;
+}
+
+.preview-image {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-image img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.preview-video {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-video video {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background-color: black;
+}
+
+.preview-info {
+  padding: 24px;
+  border-top: 1px solid var(--border-color);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  color: white;
+}
+
+.preview-prompt {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  word-break: break-word;
+}
+
+.preview-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.preview-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 </style>

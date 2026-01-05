@@ -11,8 +11,16 @@ from app.api import auth_ns, health_ns, image_ns, video_ns, task_ns, upload_ns
 # 创建Flask应用
 app = Flask(__name__)
 
-# 配置CORS
-CORS(app)
+# 配置CORS，允许所有来源，处理预检请求
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Content-Length"],
+        "supports_credentials": True
+    }
+})
 
 # 创建API对象
 api = Api(
