@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { get, post, del } from '../utils/api';
+import type { ApiResponse } from '../utils/api';
 
 // 定义任务类型
 interface Task {
@@ -34,14 +36,15 @@ defineEmits<{
 const fetchTasks = async () => {
   try {
     isLoading.value = true;
-    const response = await fetch('http://localhost:8000/v1/tasks/');
-    const data = await response.json();
+    const response = await get<{tasks: Task[]}>('/task/list');
     
-    // 处理任务数据，添加视频标识
-    tasks.value = data.map((task: any) => ({
-      ...task,
-      is_video: task.task_type.includes('video')
-    }));
+    if (response.success && response.data) {
+      // 处理任务数据，添加视频标识
+      tasks.value = response.data.tasks.map((task: any) => ({
+        ...task,
+        is_video: task.task_type.includes('video')
+      }));
+    }
   } catch (error) {
     console.error('获取任务列表失败:', error);
   } finally {
@@ -60,17 +63,15 @@ const retryTask = async (taskId: string) => {
     task.status = 'retrying';
 
     // 发送重试请求
-    const response = await fetch(`http://localhost:8000/v1/tasks/${taskId}/retry`, {
-      method: 'POST'
-    });
+    const response = await post(`/task/${taskId}/retry`);
 
-    if (response.ok) {
+    if (response.success) {
       // 重新获取任务列表
       await fetchTasks();
     } else {
       // 恢复原始状态
       task.status = task.status === 'retrying' ? 'failed' : task.status;
-      console.error('重试任务失败');
+      console.error('重试任务失败:', response.error);
     }
   } catch (error) {
     console.error('重试任务失败:', error);
@@ -85,15 +86,13 @@ const retryTask = async (taskId: string) => {
 // 删除任务
 const deleteTask = async (taskId: string) => {
   try {
-    const response = await fetch(`http://localhost:8000/v1/tasks/${taskId}`, {
-      method: 'DELETE'
-    });
+    const response = await del(`/task/${taskId}`);
 
-    if (response.ok) {
+    if (response.success) {
       // 从列表中移除任务
       tasks.value = tasks.value.filter(t => t.task_id !== taskId);
     } else {
-      console.error('删除任务失败');
+      console.error('删除任务失败:', response.error);
     }
   } catch (error) {
     console.error('删除任务失败:', error);

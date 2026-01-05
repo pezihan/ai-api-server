@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
+import { post, postForm } from '../utils/api';
+import type { ApiResponse } from '../utils/api';
 
 // 生成类型和模式（组件内部管理）
 const generateType = ref('image'); // image 或 video
@@ -78,103 +80,139 @@ const submitGeneration = async () => {
     isGenerating.value = true;
     generationMessage.value = '正在生成...';
 
-    // 准备请求数据
-    const requestData = {
-      task_type: 'text2img',
-      params: {
+    // 文生图
+    if (generateType.value === 'image' && generateMode.value === 'text2img') {
+      // 准备请求数据
+      const requestData = {
         prompt: formData.prompt,
         negative_prompt: formData.negative_prompt,
         seed: formData.seed,
         steps: formData.steps,
         guidance_scale: formData.guidance_scale,
-        width: 0,
-        height: 0,
-        num_frames: 0
+        width: formData.width,
+        height: formData.height
+      };
+
+      // 发送请求
+      const response = await post<{ task_id: string }>('/image/text2img', requestData);
+
+      if (response.success && response.data) {
+        generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+      } else {
+        generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
       }
-    };
-
-    // 根据生成模式和类型设置参数
-    if (generateType.value === 'image') {
-      if (generateMode.value === 'text2img') {
-        requestData.task_type = 'text2img';
-        requestData.params.width = formData.width;
-        requestData.params.height = formData.height;
-      } else if (generateMode.value === 'img2img') {
-          requestData.task_type = 'img2img';
-          // 处理图片上传
-          if (!uploadedImage.value) {
-            generationMessage.value = '请上传参考图片';
-            return;
-          }
-          // 这里需要处理图片上传，将图片发送到服务器
-          const formDataForUpload = new FormData();
-          formDataForUpload.append('image', uploadedImage.value);
-          formDataForUpload.append('prompt', requestData.params.prompt);
-          formDataForUpload.append('negative_prompt', requestData.params.negative_prompt);
-          formDataForUpload.append('seed', requestData.params.seed.toString());
-          formDataForUpload.append('steps', requestData.params.steps.toString());
-          formDataForUpload.append('guidance_scale', requestData.params.guidance_scale.toString());
-
-        // 发送请求
-        const response = await fetch('http://localhost:8000/v1/tasks/image/form', {
-          method: 'POST',
-          body: formDataForUpload
-        });
-
-        const result = await response.json();
-        generationMessage.value = `生成成功！任务ID: ${result.task_id}`;
-        return;
-      }
-    } else if (generateType.value === 'video') {
-      if (generateMode.value === 'text2video') {
-        requestData.task_type = 'text2video';
-        requestData.params.width = formData.width;
-        requestData.params.height = formData.height;
-        requestData.params.num_frames = formData.num_frames;
-      } else if (generateMode.value === 'img2video') {
-          requestData.task_type = 'img2video';
-          requestData.params.width = formData.width;
-          requestData.params.height = formData.height;
-          requestData.params.num_frames = formData.num_frames;
-          // 处理图片上传
-          if (!uploadedImage.value) {
-            generationMessage.value = '请上传参考图片';
-            return;
-          }
-          // 这里需要处理图片上传
-          const formDataForUpload = new FormData();
-          formDataForUpload.append('image', uploadedImage.value);
-          formDataForUpload.append('prompt', requestData.params.prompt);
-          formDataForUpload.append('negative_prompt', requestData.params.negative_prompt);
-          formDataForUpload.append('seed', requestData.params.seed.toString());
-          formDataForUpload.append('steps', requestData.params.steps.toString());
-          formDataForUpload.append('width', requestData.params.width.toString());
-          formDataForUpload.append('height', requestData.params.height.toString());
-          formDataForUpload.append('num_frames', requestData.params.num_frames.toString());
-
-        // 发送请求
-        const response = await fetch('http://localhost:8000/v1/tasks/video/form', {
-          method: 'POST',
-          body: formDataForUpload
-        });
-
-        const result = await response.json();
-        generationMessage.value = `生成成功！任务ID: ${result.task_id}`;
-        return;
-      }
+      return;
     }
 
-    // 发送文本请求
-    const response = await fetch('http://localhost:8000/v1/tasks/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    });
+    // 图生图
+    if (generateType.value === 'image' && generateMode.value === 'img2img') {
+      // 处理图片上传
+      if (!uploadedImage.value) {
+        generationMessage.value = '请上传参考图片';
+        return;
+      }
 
-    const result = await response.json();
-    generationMessage.value = `生成成功！任务ID: ${result.task_id}`;
+      // 先上传图片
+      const formDataForUpload = new FormData();
+      formDataForUpload.append('file', uploadedImage.value);
+
+      // 发送上传请求
+      const uploadResponse = await postForm<{ file_path: string }>('/upload', formDataForUpload);
+
+      if (!uploadResponse.success || !uploadResponse.data?.file_path) {
+        generationMessage.value = `图片上传失败: ${uploadResponse.error || '未知错误'}`;
+        return;
+      }
+
+      // 准备图生图请求数据
+      const requestData = {
+        prompt: formData.prompt,
+        negative_prompt: formData.negative_prompt,
+        seed: formData.seed,
+        steps: formData.steps,
+        guidance_scale: formData.guidance_scale,
+        width: formData.width,
+        height: formData.height,
+        image_path: uploadResponse.data.file_path
+      };
+
+      // 发送图生图请求
+      const response = await post<{ task_id: string }>('/image/img2img', requestData);
+
+      if (response.success && response.data) {
+        generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+      } else {
+        generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
+      }
+      return;
+    }
+
+    // 文生视频
+    if (generateType.value === 'video' && generateMode.value === 'text2video') {
+      // 准备请求数据
+      const requestData = {
+        prompt: formData.prompt,
+        negative_prompt: formData.negative_prompt,
+        seed: formData.seed,
+        steps: formData.steps,
+        width: formData.width,
+        height: formData.height,
+        num_frames: formData.num_frames
+      };
+
+      // 发送请求
+      const response = await post<{ task_id: string }>('/video/text2video', requestData);
+
+      if (response.success && response.data) {
+        generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+      } else {
+        generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
+      }
+      return;
+    }
+
+    // 图生视频
+    if (generateType.value === 'video' && generateMode.value === 'img2video') {
+      // 处理图片上传
+      if (!uploadedImage.value) {
+        generationMessage.value = '请上传参考图片';
+        return;
+      }
+
+      // 先上传图片
+      const formDataForUpload = new FormData();
+      formDataForUpload.append('file', uploadedImage.value);
+
+      // 发送上传请求
+      const uploadResponse = await postForm<{ file_path: string }>('/upload', formDataForUpload);
+
+      if (!uploadResponse.success || !uploadResponse.data?.file_path) {
+        generationMessage.value = `图片上传失败: ${uploadResponse.error || '未知错误'}`;
+        return;
+      }
+
+      // 准备图生视频请求数据
+      const requestData = {
+        prompt: formData.prompt,
+        negative_prompt: formData.negative_prompt,
+        seed: formData.seed,
+        steps: formData.steps,
+        width: formData.width,
+        height: formData.height,
+        num_frames: formData.num_frames,
+        image_path: uploadResponse.data.file_path
+      };
+
+      // 发送图生视频请求
+      const response = await post<{ task_id: string }>('/video/img2video', requestData);
+
+      if (response.success && response.data) {
+        generationMessage.value = `生成成功！任务ID: ${response.data.task_id}`;
+      } else {
+        generationMessage.value = `生成失败: ${response.error || '未知错误'}`;
+      }
+      return;
+    }
 
   } catch (error) {
     console.error('生成失败:', error);
