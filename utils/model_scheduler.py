@@ -125,8 +125,7 @@ class ModelScheduler:
         logger.info(f"加载z-image文生图模型: {model_path}")
         pipe = ZImagePipeline.from_pretrained(
             model_path,
-            torch_dtype=torch_dtype,
-            low_cpu_mem_usage=False,
+            torch_dtype=torch_dtype
         )
         pipe.transformer.set_attention_backend("flash")
         # 启用CPU卸载（节省显存）
@@ -158,8 +157,7 @@ class ModelScheduler:
         transformer = QwenImageTransformer2DModel.from_pretrained(
             model_path,
             subfolder="transformer",
-            torch_dtype=torch_dtype,
-            low_cpu_mem_usage=False
+            torch_dtype=torch_dtype
         )
         if cpu_offload:
             transformer = transformer.to("cpu")
@@ -170,8 +168,7 @@ class ModelScheduler:
         text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
             subfolder="text_encoder",
-            dtype=torch_dtype,
-            low_cpu_mem_usage=False
+            dtype=torch_dtype
         )
         if cpu_offload:
             text_encoder = text_encoder.to("cpu")
@@ -377,20 +374,8 @@ class ModelScheduler:
                 time.sleep(0.1)
         
         # 清理Python引用和CPU内存
-        # 重置所有可能的全局引用
-        import sys
-        for module_name, module in list(sys.modules.items()):
-            if module_name.startswith('diffusers') or module_name.startswith('transformers') or module_name.startswith('wan'):
-                try:
-                    # 清理模块中的全局变量
-                    for attr in dir(module):
-                        if not attr.startswith('__'):
-                            try:
-                                delattr(module, attr)
-                            except Exception as e:
-                                pass
-                except Exception as e:
-                    pass
+        # 注意：不要清理模块的内部属性，这会导致库状态被破坏
+        # 只删除模型实例相关的引用和清理系统资源
         
         # 强制垃圾回收 - 多次回收确保彻底
         for i in range(3):
