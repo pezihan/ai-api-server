@@ -362,12 +362,6 @@ onUnmounted(() => {
             <div class="task-info">
             <div class="task-type">
               {{ getTaskTypeText(task.task_type) }}
-              <span class="video-indicator" v-if="task.is_video">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-                视频
-              </span>
             </div>
             <div class="task-time">
               {{ formatTime(task.created_at) }}
@@ -717,9 +711,10 @@ onUnmounted(() => {
 
 /* 任务列表 */
 .tasks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 16px;
+  grid-auto-flow: dense;
 }
 
 .task-item {
@@ -729,7 +724,6 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
-  flex: 0 0 calc(33.333% - 16px);
   box-sizing: border-box;
 }
 
