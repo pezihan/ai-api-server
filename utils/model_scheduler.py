@@ -80,13 +80,15 @@ class ModelScheduler:
         
         logger.info(f"加载模型, 任务类型: {task_type}, 参数: {kwargs}")
         
-        # 如果要加载的任务与当前模型的任务类型相同，直接返回
+        # 检查是否需要加载新模型
         if self.current_task == task_type:
             logger.info(f"模型 (任务: {task_type}) 已加载，直接复用")
             return self.model_pipeline
         
-        # 卸载当前模型
-        self.unload_model()
+        
+        # 如果当前有模型且任务类型不同，则卸载当前模型
+        if self.current_task is not None:
+            self.unload_model()
         
         # 加载新模型
         try:
@@ -106,6 +108,10 @@ class ModelScheduler:
             
         except Exception as e:
             logger.error(f"加载模型失败: {e}")
+            # 如果是内存不足导致的失败，确保卸载当前模型
+            if "CUDA out of memory" in str(e) or "memory" in str(e).lower():
+                logger.warning(f"模型加载失败，可能是显存溢出导致，清理资源")
+                self.unload_model()
             raise
     
     def _load_zimage_t2i_model(self, **kwargs):
@@ -258,30 +264,161 @@ class ModelScheduler:
         pipe.load()        
         self.model_pipeline = pipe
     
+    def get_gpu_memory_info(self):
+        """
+        获取GPU内存使用信息
+        
+        Returns:
+            dict: 包含总内存、已用内存和可用内存的字典（单位：GB）
+        """
+        if not torch.cuda.is_available():
+            return {}
+        
+        # 获取当前设备
+        device = torch.cuda.current_device()
+        
+        # 获取GPU属性
+        props = torch.cuda.get_device_properties(device)
+        total_memory_gb = props.total_memory / (1024 ** 3)
+        
+        # 获取内存使用情况
+        memory_allocated = torch.cuda.memory_allocated(device) / (1024 ** 3)
+        memory_reserved = torch.cuda.memory_reserved(device) / (1024 ** 3)
+        
+        return {
+            'total': total_memory_gb,
+            'allocated': memory_allocated,
+            'reserved': memory_reserved,
+            'available': total_memory_gb - memory_reserved
+        }
+    
+    def get_cpu_memory_usage(self):
+        """
+        获取CPU内存使用情况
+        
+        Returns:
+            dict: 包含已用内存和可用内存的字典（单位：GB）
+        """
+        import psutil
+        process = psutil.Process()
+        mem_info = process.memory_info()
+        mem_used = mem_info.rss / (1024 ** 3)  # 已用内存（GB）
+        
+        # 获取系统总内存和可用内存
+        virtual_mem = psutil.virtual_memory()
+        total_mem = virtual_mem.total / (1024 ** 3)
+        available_mem = virtual_mem.available / (1024 ** 3)
+        
+        return {
+            'process_used': mem_used,
+            'system_total': total_mem,
+            'system_available': available_mem
+        }
+    
     def unload_model(self):
-        """卸载当前模型，释放显存"""
+        """卸载当前模型，释放显存和内存"""
         if self.current_task is None:
             return
         
+        # 卸载前记录内存使用情况
+        gpu_memory_before = self.get_gpu_memory_info()
+        cpu_memory_before = self.get_cpu_memory_usage()
+        logger.info(f"卸载当前模型前GPU内存使用: {gpu_memory_before}")
+        logger.info(f"卸载当前模型前CPU内存使用: {cpu_memory_before}")
         logger.info(f"卸载当前模型 (任务: {self.current_task})")
         
-        # 释放模型资源
+        # 释放模型资源 - 更彻底的清理
         if self.model_pipeline is not None:
+            # 特殊处理wan模型，确保所有资源都被释放
+            if hasattr(self.model_pipeline, 'cleanup'):
+                try:
+                    self.model_pipeline.cleanup()
+                    logger.info("模型已执行自定义cleanup方法")
+                except Exception as e:
+                    logger.warning(f"执行模型cleanup方法时出错: {e}")
+            
+            # 释放所有可能的子组件
+            for attr in dir(self.model_pipeline):
+                if not attr.startswith('_'):
+                    try:
+                        obj = getattr(self.model_pipeline, attr)
+                        if hasattr(obj, 'to') and callable(obj.to):
+                            # 将模型组件移到CPU（如果不在CPU上）
+                            if hasattr(obj, 'device') and obj.device.type == 'cuda':
+                                obj.to('cpu')
+                            # 清理组件的内部状态
+                            if hasattr(obj, 'config'):
+                                del obj.config
+                            if hasattr(obj, 'state_dict'):
+                                del obj.state_dict
+                        # 尝试释放numpy数组等大对象
+                        if hasattr(obj, '__array__') or hasattr(obj, 'numpy'):
+                            try:
+                                if hasattr(obj, 'numpy'):
+                                    del obj.numpy()
+                                del obj
+                            except Exception as e:
+                                pass
+                        else:
+                            del obj
+                    except Exception as e:
+                        pass
+            
             del self.model_pipeline
             self.model_pipeline = None
         
-        # 清理GPU显存
+        # 清理GPU显存 - 多次尝试确保清理干净
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
+            for i in range(3):
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+                # 短暂休眠让CUDA完成清理
+                import time
+                time.sleep(0.1)
         
-        # 强制垃圾回收
-        gc.collect()
+        # 清理Python引用和CPU内存
+        # 重置所有可能的全局引用
+        import sys
+        for module_name, module in list(sys.modules.items()):
+            if module_name.startswith('diffusers') or module_name.startswith('transformers') or module_name.startswith('wan'):
+                try:
+                    # 清理模块中的全局变量
+                    for attr in dir(module):
+                        if not attr.startswith('__'):
+                            try:
+                                delattr(module, attr)
+                            except Exception as e:
+                                pass
+                except Exception as e:
+                    pass
+        
+        # 强制垃圾回收 - 多次回收确保彻底
+        for i in range(3):
+            gc.collect()
+            # 调用循环收集器以处理循环引用
+            gc.collect()
+            import time
+            time.sleep(0.2)
         
         self.current_task = None
         self.model_params = {}
         
-        logger.info("模型卸载完成，显存已释放")
+        # 卸载后记录内存使用情况
+        gpu_memory_after = self.get_gpu_memory_info()
+        cpu_memory_after = self.get_cpu_memory_usage()
+        logger.info(f"卸载当前模型后GPU内存使用: {gpu_memory_after}")
+        logger.info(f"卸载当前模型后CPU内存使用: {cpu_memory_after}")
+        
+        # 计算内存释放量
+        if 'reserved' in gpu_memory_before and 'reserved' in gpu_memory_after:
+            gpu_memory_freed = gpu_memory_before['reserved'] - gpu_memory_after['reserved']
+            logger.info(f"GPU内存释放: {gpu_memory_freed:.2f} GB")
+        
+        if 'process_used' in cpu_memory_before and 'process_used' in cpu_memory_after:
+            cpu_memory_freed = cpu_memory_before['process_used'] - cpu_memory_after['process_used']
+            logger.info(f"CPU内存释放: {cpu_memory_freed:.2f} GB")
+        
+        logger.info("模型卸载完成，显存和内存已释放")
     
     def get_current_model(self):
         """

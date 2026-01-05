@@ -91,8 +91,12 @@ class TaskWorker:
             
         except Exception as e:
             logger.error(f"处理任务 {task_id} 失败: {e}")
+    
             # 更新任务状态为失败
             task_manager.update_task_status(task_id, 'failed', error=str(e))
+            model_scheduler.unload_model()
+                
+                
     
     def _process_image_task(self, task_type, task_params):
         """
