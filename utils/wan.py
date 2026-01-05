@@ -78,8 +78,28 @@ class WanPipeRunner:
     # 确保使用的是正确的 model_cls
     model_cls = self.config["model_cls"]
     logging.info(f"正在从 RUNNER_REGISTER 中获取: {model_cls}")
-    self.runner = RUNNER_REGISTER[model_cls](self.config)
+    
+    # 检查RUNNER_REGISTER是否包含指定的model_cls
+    if model_cls not in RUNNER_REGISTER:
+        logging.error(f"RUNNER_REGISTER 中不存在 {model_cls}")
+        raise ValueError(f"RUNNER_REGISTER 中不存在 {model_cls}")
+    
+    # 获取runner类并创建实例
+    runner_class = RUNNER_REGISTER[model_cls]
+    logging.info(f"获取到的runner类: {runner_class}")
+    
+    self.runner = runner_class(self.config)
+    logging.info(f"创建的runner实例: {self.runner}")
+    
+    # 检查self.runner是否为None
+    if self.runner is None:
+        logging.error(f"创建 {model_cls} runner 实例失败，返回 None")
+        raise ValueError(f"创建 {model_cls} runner 实例失败，返回 None")
+    
+    # 初始化模块
+    logging.info(f"开始初始化runner模块: {self.runner}")
     self.runner.init_modules()
+    logging.info(f"runner模块初始化完成")
 
   def infer(
     self,
@@ -93,6 +113,11 @@ class WanPipeRunner:
     seed: int | None = None,
     infer_steps: int | None = None,
   ):
+    # 检查self.runner是否为None
+    if self.runner is None:
+        logging.error("self.runner 为 None，无法执行推理")
+        raise RuntimeError("self.runner 为 None，无法执行推理。请先正确加载模型。")
+    
     if seed is None:
       seed = random.randint(0, 2**32 - 1)
     if negative_prompt is None:
