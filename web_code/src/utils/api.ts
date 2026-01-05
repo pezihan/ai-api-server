@@ -3,7 +3,7 @@
 // 创建API配置
 const API_CONFIG = {
   // 默认API地址，用户可以在这里修改
-  BASE_URL: 'http://localhost:5000',
+  BASE_URL: 'http://localhost:5001',
   // 请求超时时间
   TIMEOUT: 60000,
   // 默认请求头
