@@ -239,7 +239,7 @@ def _load_qwen_i2i_model_worker(params):
 
 def _load_wan_t2v_model_worker(params):
     """工作进程内部加载wan文生视频模型"""
-    from wan import WanPipeRunner
+    from utils.wan import WanPipeRunner
     
     model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
@@ -256,7 +256,7 @@ def _load_wan_t2v_model_worker(params):
 
 def _load_wan_i2v_model_worker(params):
     """工作进程内部加载wan图生视频模型"""
-    from wan import WanPipeRunner
+    from utils.wan import WanPipeRunner
     
     model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.2-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
