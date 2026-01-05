@@ -47,7 +47,7 @@ class Text2Img(Resource):
             prompt = data.get('prompt')
             negative_prompt = data.get('negative_prompt', '')
             seed = data.get('seed')
-            steps = data.get('steps', 10)
+            steps = data.get('steps', 50)
             width = data.get('width', 512)
             height = data.get('height', 512)
             guidance_scale = data.get('guidance_scale', 5.0)

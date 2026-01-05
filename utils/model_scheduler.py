@@ -333,9 +333,8 @@ class ModelScheduler:
         self.task_queue = None  # 任务队列
         self.result_queue = None  # 结果队列
         
-        # 确保multiprocessing以fork模式启动（适用于Linux/Mac）
-        if sys.platform != 'win32':
-            mp.set_start_method('fork', force=True)
+        # 确保multiprocessing以spawn模式启动（支持CUDA的多进程使用）
+        mp.set_start_method('spawn', force=True)
 
     def is_cpu_offload_enabled_image(self) -> bool:
         """
