@@ -367,12 +367,15 @@ class ModelScheduler:
         
         # 清理GPU显存 - 多次尝试确保清理干净
         if torch.cuda.is_available():
-            for i in range(3):
+            for i in range(5):
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
+                # 尝试强制释放所有CUDA内存池
+                torch.cuda.reset_peak_memory_stats()
+                torch.cuda.synchronize()
                 # 短暂休眠让CUDA完成清理
                 import time
-                time.sleep(0.1)
+                time.sleep(0.2)  # 延长休眠时间
         
         # 清理Python引用和CPU内存
         # 注意：不要清理模块的内部属性，这会导致库状态被破坏
