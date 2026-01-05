@@ -87,11 +87,14 @@ def model_worker_process(task_queue, result_queue):
                         model_pipeline = None
                     current_task = None
                     
-                    # 清理GPU显存
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                        torch.cuda.ipc_collect()
-                        torch.cuda.synchronize()
+                    # 清理GPU显存（仅在CUDA上下文有效的情况下）
+                    try:
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            torch.cuda.ipc_collect()
+                            torch.cuda.synchronize()
+                    except (torch.cuda.CudaError, torch.AcceleratorError) as e:
+                        logger.warning(f"清理CUDA显存时出错: {e}")
                     
                     # 清理内存
                     gc.collect()
@@ -108,11 +111,14 @@ def model_worker_process(task_queue, result_queue):
         if model_pipeline is not None:
             del model_pipeline
         
-        # 清理GPU显存
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
-            torch.cuda.synchronize()
+        # 清理GPU显存（仅在CUDA上下文有效的情况下）
+        try:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+                torch.cuda.synchronize()
+        except (torch.cuda.CudaError, torch.AcceleratorError) as e:
+            logger.warning(f"清理CUDA显存时出错: {e}")
         
         # 清理内存
         gc.collect()
@@ -463,6 +469,7 @@ class ModelScheduler:
         except Exception as e:
             logger.error(f"加载模型失败: {e}")
             self._terminate_model_process()
+            raise  # 重新抛出异常，确保调用者知道模型加载失败
     
     def _get_inference_func(self):
         """获取模型推理函数"""

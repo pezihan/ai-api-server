@@ -43,12 +43,25 @@ class TaskWorker:
                 self._process_task(task_id, task_info)
                 
                 # 任务处理完成，确认消息
-                ch.basic_ack(delivery_tag=method.delivery_tag)
-                logger.info(f"任务处理完成并确认: {task_id}")
+                try:
+                    if ch.is_open:
+                        ch.basic_ack(delivery_tag=method.delivery_tag)
+                        logger.info(f"任务处理完成并确认: {task_id}")
+                    else:
+                        logger.warning("通道已关闭，无法执行ack操作")
+                except Exception as ack_error:
+                    logger.error(f"执行ack操作失败: {ack_error}")
                 
             except Exception as e:
                 logger.error(f"处理任务时发生异常: {e}")
-                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                # 检查通道是否仍然打开，避免在连接关闭时尝试nack
+                try:
+                    if ch.is_open:
+                        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    else:
+                        logger.warning("通道已关闭，无法执行nack操作")
+                except Exception as nack_error:
+                    logger.error(f"执行nack操作失败: {nack_error}")
         
         # 使用RabbitMQ的消息监听机制
         rabbitmq_client.consume_messages(
