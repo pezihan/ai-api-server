@@ -138,9 +138,27 @@ class TaskManager:
         
         Args:
             task_id: str, 任务ID
+        
+        Returns:
+            bool: 是否成功
         """
+        task_info = self.get_task(task_id)
+        if not task_info:
+            logger.warning(f"任务不存在: {task_id}")
+            return False
+        
+        # 检查任务是否正在执行中
+        if task_info['status'] == 'processing':
+            logger.warning(f"任务正在执行中，无法重试: {task_id}")
+            return False
+        
+        # 更新任务状态为pending
+        self.update_task_status(task_id, 'pending', result=None, error=None)
+        
+        # 将任务重新加入RabbitMQ队列
         self.rabbitmq.publish_message(self.task_queue_name, task_id, durable=True)
         logger.info(f"任务重新加入RabbitMQ队列: {task_id}")
+        return True
     
     def delete_task(self, task_id):
         """
@@ -148,9 +166,24 @@ class TaskManager:
         
         Args:
             task_id: str, 任务ID
+        
+        Returns:
+            bool: 是否成功
         """
+        task_info = self.get_task(task_id)
+        if not task_info:
+            logger.warning(f"任务不存在: {task_id}")
+            return False
+        
+        # 检查任务是否正在执行中
+        if task_info['status'] == 'processing':
+            logger.warning(f"任务正在执行中，无法删除: {task_id}")
+            return False
+        
+        # 从Redis中删除任务
         self.redis.hdel(self.task_info_hash_key, task_id)
         logger.info(f"任务删除成功: {task_id}")
+        return True
 
 # 创建全局任务管理器实例
 task_manager = TaskManager()

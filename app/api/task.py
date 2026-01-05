@@ -75,3 +75,45 @@ class TaskDetail(Resource):
         except Exception as e:
             logger.error(f"获取任务详情失败: {e}")
             return {'code': 500, 'msg': '获取任务详情失败', 'data': None}, 200
+    
+    @task_ns.response(200, '删除任务')
+    @auth_required
+    def delete(self, task_id):
+        """删除任务"""
+        try:
+            success = task_manager.delete_task(task_id)
+            
+            if not success:
+                return {'code': 400, 'msg': '任务不存在或正在执行中，无法删除', 'data': None}, 200
+            
+            return {
+                'code': 200,
+                'msg': '任务删除成功',
+                'data': None
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"删除任务失败: {e}")
+            return {'code': 500, 'msg': '删除任务失败', 'data': None}, 200
+
+@task_ns.route('/<task_id>/retry')
+class TaskRetry(Resource):
+    @task_ns.response(200, '重试任务')
+    @auth_required
+    def post(self, task_id):
+        """重试任务"""
+        try:
+            success = task_manager.requeue_task(task_id)
+            
+            if not success:
+                return {'code': 400, 'msg': '任务不存在或正在执行中，无法重试', 'data': None}, 200
+            
+            return {
+                'code': 200,
+                'msg': '任务重试成功',
+                'data': None
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"重试任务失败: {e}")
+            return {'code': 500, 'msg': '重试任务失败', 'data': None}, 200
