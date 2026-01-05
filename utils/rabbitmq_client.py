@@ -131,9 +131,21 @@ class RabbitMQClient:
         logger.info(f"开始消费消息: {queue_name}")
         self.channel.start_consuming()
     
+    def stop_consuming(self):
+        """停止消息消费"""
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.stop_consuming()
+                logger.info("已停止消息消费")
+        except Exception as e:
+            logger.warning(f"停止消息消费时出错: {str(e)}")
+    
     def close(self):
         """关闭连接"""
         try:
+            # 先停止消费
+            self.stop_consuming()
+            
             if self.channel and self.channel.is_open:
                 self.channel.close()
             if self.connection and self.connection.is_open:

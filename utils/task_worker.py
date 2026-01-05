@@ -33,7 +33,14 @@ class TaskWorker:
                 if not task_info:
                     logger.warning(f"任务不存在: {task_id}")
                     # 确认消息，即使任务不存在也需要ack
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    try:
+                        if ch.is_open:
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            logger.info(f"任务不存在，已确认消息: {task_id}")
+                        else:
+                            logger.warning("通道已关闭，无法执行ack操作")
+                    except Exception as ack_error:
+                        logger.error(f"执行ack操作失败: {ack_error}")
                     return
                 
                 # 更新任务状态为处理中
@@ -63,17 +70,28 @@ class TaskWorker:
                 except Exception as nack_error:
                     logger.error(f"执行nack操作失败: {nack_error}")
         
-        # 使用RabbitMQ的消息监听机制
-        rabbitmq_client.consume_messages(
-            queue_name='ai_task_queue',
-            callback=on_message_received,
-            durable=True
-        )
+        # 使用RabbitMQ的消息监听机制，添加异常处理
+        try:
+            rabbitmq_client.consume_messages(
+                queue_name='ai_task_queue',
+                callback=on_message_received,
+                durable=True
+            )
+        except Exception as e:
+            logger.error(f"消息消费过程中发生异常: {e}")
+            # 当连接关闭或发生其他异常时，尝试重新启动消费
+            if self.is_running:
+                logger.info("尝试重新启动消息消费...")
+                time.sleep(5)  # 等待5秒后重试
+                self.start()  # 递归调用start方法重新启动消费
     
     def stop(self):
         """停止任务工作器"""
         self.is_running = False
         logger.info("任务工作器停止")
+        # 停止消息消费
+        from utils.rabbitmq_client import rabbitmq_client
+        rabbitmq_client.stop_consuming()
     
     def _process_task(self, task_id, task_info):
         """
