@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { get, post, del } from '../utils/api';
+import { get, post, del, getApiBaseUrl } from '../utils/api';
 import type { ApiResponse } from '../utils/api';
+
+// 定义任务结果类型
+interface TaskResult {
+  image_path?: string;
+  video_path?: string;
+  cover_path?: string;
+  task_type: string;
+}
 
 // 定义任务类型
 interface Task {
@@ -11,7 +19,7 @@ interface Task {
   create_time: string;
   update_time: string;
   params: any;
-  result?: any;
+  result?: TaskResult;
   error?: string;
   is_video?: boolean;
 }
@@ -27,6 +35,12 @@ const showErrorDetails = ref(false);
 // 轮询定时器
 let pollingTimer: number | null = null;
 
+// 分页相关状态
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+const totalPages = ref(0);
+
 // 关闭任务列表
 defineEmits<{
   (e: 'close'): void;
@@ -36,9 +50,15 @@ defineEmits<{
 const fetchTasks = async () => {
   try {
     isLoading.value = true;
-    const response = await get<{tasks: Task[]}>('/task/list');
+    const response = await get<{total: number; page: number; page_size: number; tasks: Task[]}>(`/task/list?page=${currentPage.value}&page_size=${pageSize.value}`);
     
     if (response.success && response.data) {
+      // 更新分页状态
+      total.value = response.data.total;
+      currentPage.value = response.data.page;
+      pageSize.value = response.data.page_size;
+      totalPages.value = Math.ceil(total.value / pageSize.value);
+      
       // 处理任务数据，添加视频标识
       tasks.value = response.data.tasks.map((task: any) => ({
         ...task,
@@ -154,12 +174,66 @@ const formatTime = (timeString: string) => {
   return date.toLocaleString('zh-CN');
 };
 
+// 拼接域名到文件路径
+const getFullPath = (path?: string) => {
+  if (!path) return '';
+  // 使用API域名
+  const domain = getApiBaseUrl();
+  // 确保路径以/开头
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${domain}${normalizedPath}`;
+};
+
+// 分页相关函数
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value && page !== currentPage.value) {
+    currentPage.value = page;
+    fetchTasks();
+  }
+};
+
+const handlePageSizeChange = () => {
+  currentPage.value = 1;
+  fetchTasks();
+};
+
+// 更新单个任务状态
+const updateSingleTask = async (taskId: string) => {
+  try {
+    const response = await get<Task>(`/task/${taskId}`);
+    if (response.success && response.data) {
+      // 找到任务索引
+      const taskIndex = tasks.value.findIndex(task => task.task_id === taskId);
+      if (taskIndex !== -1) {
+        // 更新任务信息
+        tasks.value[taskIndex] = {
+          ...tasks.value[taskIndex],
+          ...response.data,
+          is_video: response.data.task_type.includes('video')
+        };
+      }
+    }
+  } catch (error) {
+    console.error(`更新任务 ${taskId} 失败:`, error);
+  }
+};
+
 // 开始轮询任务状态
 const startPolling = () => {
   // 初始加载
   fetchTasks();
   // 每3秒轮询一次
-  pollingTimer = window.setInterval(fetchTasks, 3000);
+  pollingTimer = window.setInterval(() => {
+    // 只更新状态为pending或processing的任务
+    const activeTasks = tasks.value.filter(task => 
+      task.status === 'pending' || task.status === 'processing'
+    );
+    
+    // 并行更新所有活跃任务
+    activeTasks.forEach(task => {
+      updateSingleTask(task.task_id);
+    });
+  }, 3000);
 };
 
 // 停止轮询
@@ -238,6 +312,37 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- 任务结果展示 -->
+          <div class="task-result">
+            <!-- 未完成任务显示默认占位图 -->
+            <div v-if="task.status !== 'completed'" class="task-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <p>处理中...</p>
+            </div>
+
+            <!-- 图片任务结果 -->
+            <div v-else-if="!task.is_video && task.result?.image_path" class="task-image">
+              <img :src="getFullPath(task.result.image_path)" :alt="task.params.prompt" />
+            </div>
+
+            <!-- 视频任务结果 -->
+            <div v-else-if="task.is_video && task.result?.video_path" class="task-video">
+              <div class="video-wrapper" @click="$refs[`video-${task.task_id}`]?.play()">
+                <img v-if="task.result.cover_path" :src="getFullPath(task.result.cover_path)" :alt="task.params.prompt" class="video-cover" />
+                <div class="video-play-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                </div>
+              </div>
+              <video :ref="`video-${task.task_id}`" :src="getFullPath(task.result.video_path)" controls style="display: none;"></video>
+            </div>
+          </div>
+
           <!-- 任务提示词 -->
           <div class="task-prompt">
             {{ task.params.prompt }}
@@ -288,6 +393,49 @@ onUnmounted(() => {
               删除
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- 分页控件 -->
+      <div class="pagination" v-if="total > 0">
+        <div class="pagination-info">
+          共 {{ total }} 条记录，第 {{ currentPage }}/{{ totalPages }} 页
+        </div>
+        <div class="pagination-controls">
+          <button 
+            class="pagination-btn" 
+            @click="goToPage(1)"
+            :disabled="currentPage === 1"
+          >
+            首页
+          </button>
+          <button 
+            class="pagination-btn" 
+            @click="goToPage(currentPage - 1)"
+            :disabled="currentPage === 1"
+          >
+            上一页
+          </button>
+          <button 
+            class="pagination-btn" 
+            @click="goToPage(currentPage + 1)"
+            :disabled="currentPage === totalPages"
+          >
+            下一页
+          </button>
+          <button 
+            class="pagination-btn" 
+            @click="goToPage(totalPages)"
+            :disabled="currentPage === totalPages"
+          >
+            末页
+          </button>
+          <select class="page-size-select" v-model="pageSize" @change="handlePageSizeChange">
+            <option :value="5">5条/页</option>
+            <option :value="10">10条/页</option>
+            <option :value="20">20条/页</option>
+            <option :value="50">50条/页</option>
+          </select>
         </div>
       </div>
     </div>
@@ -557,22 +705,97 @@ onUnmounted(() => {
   color: #d97706;
 }
 
-.task-prompt {
+.task-result {
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--bg-light);
+  position: relative;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px;
+  color: var(--text-helper);
+}
+
+.task-placeholder svg {
+  margin-bottom: 12px;
+  opacity: 0.6;
+  color: var(--secondary-color);
+}
+
+.task-placeholder p {
+  margin: 0;
   font-size: 14px;
+}
+
+.task-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+}
+
+.task-video {
+  width: 100%;
+  position: relative;
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+}
+
+.video-cover {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-md);
+}
+
+.video-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  opacity: 0.8;
+}
+
+.video-wrapper:hover .video-play-btn {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.task-prompt {
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 16px;
   word-break: break-word;
-  max-height: 72px;
+  max-height: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  background-color: var(--bg-light);
-  padding: 12px;
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--primary-color);
+  padding: 8px 0;
 }
 
 .task-actions {
@@ -640,6 +863,76 @@ onUnmounted(() => {
   border-color: var(--secondary-color);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(107, 114, 128, 0.15);
+}
+
+/* 分页控件 */
+.pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+  gap: 12px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.page-size-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+.page-size-select:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-md);
 }
 
 /* 错误详情弹窗 */

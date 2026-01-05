@@ -36,7 +36,7 @@ export const apiRequest = async <T = any>(
     // 构建完整URL
     const fullUrl = `${API_CONFIG.BASE_URL}${url}`;
     
-    // 合并请求配置
+    // 合并请求配置并添加认证token
     const requestConfig: RequestInit = {
       ...config,
       headers: {
@@ -44,6 +44,13 @@ export const apiRequest = async <T = any>(
         ...(config.headers || {})
       }
     };
+    
+    // 从localStorage获取认证token
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      // 添加Authorization头
+      (requestConfig.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
     
     // 处理请求体
     let requestBody: BodyInit | null = null;
@@ -73,16 +80,21 @@ export const apiRequest = async <T = any>(
     }
     
     // 处理响应
-    if (response.ok) {
+    if (responseData) {
+      // 根据后端返回的code判断请求是否成功
+      // 后端通常返回code为200表示成功
+      const isSuccess = responseData.code === 200;
       return {
-        success: true,
-        data: responseData as T
+        success: isSuccess,
+        data: responseData.data as T,
+        error: !isSuccess ? (responseData.msg || `请求失败: ${response.status}`) : undefined,
+        message: responseData.msg
       };
     } else {
       return {
         success: false,
-        error: responseData?.error || responseData?.message || `请求失败: ${response.status}`,
-        message: responseData?.message
+        error: `请求失败: ${response.status}`,
+        message: `请求失败: ${response.status}`
       };
     }
   } catch (error) {

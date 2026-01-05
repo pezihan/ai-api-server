@@ -17,7 +17,6 @@ class TaskWorker:
     def __init__(self):
         self.is_running = False
         self.consumer_thread = None
-        self.processed_tasks = set()  # 用于去重：记录已处理的任务ID
     
     def start(self):
         """启动任务工作器"""
@@ -28,15 +27,6 @@ class TaskWorker:
             """处理接收到的消息"""
             try:
                 task_id = body.decode('utf-8')
-
-                # 去重检查：如果任务已处理，直接确认消息并返回
-                if task_id in self.processed_tasks:
-                    logger.info(f"任务已处理过，跳过: {task_id}")
-                    try:
-                        ch.basic_ack(delivery_tag=method.delivery_tag)
-                    except Exception:
-                        pass  # 连接可能已断开，忽略
-                    return
 
                 logger.info(f"接收到任务: {task_id}")
 
@@ -51,9 +41,6 @@ class TaskWorker:
                     except Exception as ack_error:
                         logger.error(f"执行ack操作失败: {ack_error}")
                     return
-
-                # 添加到已处理集合
-                self.processed_tasks.add(task_id)
 
                 # 更新任务状态为处理中
                 task_manager.update_task_status(task_id, 'processing')
@@ -100,9 +87,6 @@ class TaskWorker:
         """停止任务工作器"""
         self.is_running = False
         logger.info("任务工作器停止")
-        # 清理已处理任务集合（防止内存泄漏）
-        if len(self.processed_tasks) > 10000:
-            self.processed_tasks.clear()
         # 停止消息消费
         from utils.rabbitmq_client import rabbitmq_client
         rabbitmq_client.stop_consuming()
@@ -135,8 +119,6 @@ class TaskWorker:
 
         except Exception as e:
             logger.error(f"处理任务 {task_id} 失败: {e}")
-            # 从已处理集合中移除，允许重试
-            self.processed_tasks.discard(task_id)
     
             # 更新任务状态为失败
             task_manager.update_task_status(task_id, 'failed', error=str(e))
