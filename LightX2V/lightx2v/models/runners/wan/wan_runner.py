@@ -24,7 +24,15 @@ from LightX2V.lightx2v.models.schedulers.wan.scheduler import WanScheduler
 from LightX2V.lightx2v.models.video_encoders.hf.wan.vae import WanVAE
 from LightX2V.lightx2v.models.video_encoders.hf.wan.vae_2_2 import Wan2_2_VAE
 from LightX2V.lightx2v.models.video_encoders.hf.wan.vae_tiny import Wan2_2_VAE_tiny, WanVAE_tiny
-from LightX2V.lightx2v.server.metrics import monitor_cli
+# Delay import to prevent duplicate metrics registration
+monitor_cli = None
+
+def get_monitor_cli():
+    global monitor_cli
+    if monitor_cli is None:
+        from LightX2V.lightx2v.server.metrics import monitor_cli as cli
+        monitor_cli = cli
+    return monitor_cli
 from LightX2V.lightx2v.utils.envs import *
 from LightX2V.lightx2v.utils.profiler import *
 from LightX2V.lightx2v.utils.registry_factory import RUNNER_REGISTER
@@ -217,7 +225,7 @@ class WanRunner(DefaultRunner):
     @ProfilingContext4DebugL1(
         "Run Text Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=monitor_cli.lightx2v_run_text_encode_duration,
+        metrics_func=get_monitor_cli().lightx2v_run_text_encode_duration,
         metrics_labels=["WanRunner"],
     )
     def run_text_encoder(self, input_info):
@@ -226,7 +234,7 @@ class WanRunner(DefaultRunner):
 
         prompt = input_info.prompt_enhanced if self.config["use_prompt_enhancer"] else input_info.prompt
         if GET_RECORDER_MODE():
-            monitor_cli.lightx2v_input_prompt_len.observe(len(prompt))
+            get_monitor_cli().lightx2v_input_prompt_len.observe(len(prompt))
         neg_prompt = input_info.negative_prompt
 
         if self.config.get("enable_cfg", False) and self.config["cfg_parallel"]:
@@ -263,7 +271,7 @@ class WanRunner(DefaultRunner):
     @ProfilingContext4DebugL1(
         "Run Image Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=monitor_cli.lightx2v_run_img_encode_duration,
+        metrics_func=get_monitor_cli().lightx2v_run_img_encode_duration,
         metrics_labels=["WanRunner"],
     )
     def run_image_encoder(self, first_frame, last_frame=None):
@@ -334,7 +342,7 @@ class WanRunner(DefaultRunner):
     @ProfilingContext4DebugL1(
         "Run VAE Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=monitor_cli.lightx2v_run_vae_encoder_image_duration,
+        metrics_func=get_monitor_cli().lightx2v_run_vae_encoder_image_duration,
         metrics_labels=["WanRunner"],
     )
     def run_vae_encoder(self, first_frame, last_frame=None):
@@ -621,7 +629,7 @@ class Wan22DenseRunner(WanRunner):
     @ProfilingContext4DebugL1(
         "Run VAE Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=monitor_cli.lightx2v_run_vae_encoder_image_duration,
+        metrics_func=get_monitor_cli().lightx2v_run_vae_encoder_image_duration,
         metrics_labels=["Wan22DenseRunner"],
     )
     def run_vae_encoder(self, img):

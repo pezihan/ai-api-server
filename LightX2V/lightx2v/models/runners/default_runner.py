@@ -10,7 +10,15 @@ from loguru import logger
 from requests.exceptions import RequestException
 
 from lightx2v.models.runners.base_runner import BaseRunner
-from lightx2v.server.metrics import monitor_cli
+# Delay import and use consistent path to prevent duplicate metrics registration
+monitor_cli = None
+
+def get_monitor_cli():
+    global monitor_cli
+    if monitor_cli is None:
+        from LightX2V.lightx2v.server.metrics import monitor_cli as cli
+        monitor_cli = cli
+    return monitor_cli
 from lightx2v.utils.envs import *
 from lightx2v.utils.generate_task_id import generate_task_id
 from lightx2v.utils.global_paras import CALIB
@@ -169,7 +177,7 @@ class DefaultRunner(BaseRunner):
             with ProfilingContext4DebugL1(
                 f"Run Dit every step",
                 recorder_mode=GET_RECORDER_MODE(),
-                metrics_func=monitor_cli.lightx2v_run_per_step_dit_duration,
+                metrics_func=get_monitor_cli().lightx2v_run_per_step_dit_duration,
                 metrics_labels=[step_index + 1, infer_steps],
             ):
                 if self.video_segment_num == 1:
@@ -239,7 +247,7 @@ class DefaultRunner(BaseRunner):
 
         if GET_RECORDER_MODE():
             width, height = img_ori.size
-            monitor_cli.lightx2v_input_image_len.observe(width * height)
+            get_monitor_cli().lightx2v_input_image_len.observe(width * height)
         img = TF.to_tensor(img_ori).sub_(0.5).div_(0.5).unsqueeze(0).to(self.init_device)
         self.input_info.original_size = img_ori.size
 
@@ -358,7 +366,7 @@ class DefaultRunner(BaseRunner):
             with ProfilingContext4DebugL1(
                 f"segment end2end {segment_idx + 1}/{self.video_segment_num}",
                 recorder_mode=GET_RECORDER_MODE(),
-                metrics_func=monitor_cli.lightx2v_run_segments_end2end_duration,
+                metrics_func=get_monitor_cli().lightx2v_run_segments_end2end_duration,
                 metrics_labels=["DefaultRunner"],
             ):
                 self.check_stop()
@@ -381,7 +389,7 @@ class DefaultRunner(BaseRunner):
         self.end_run()
         return gen_video_final
 
-    @ProfilingContext4DebugL1("Run VAE Decoder", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
+    @ProfilingContext4DebugL1("Run VAE Decoder", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
     def run_vae_decoder(self, latents):
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             self.vae_decoder = self.load_vae_decoder()
@@ -392,7 +400,7 @@ class DefaultRunner(BaseRunner):
             gc.collect()
         return images
 
-    @ProfilingContext4DebugL1("Run VAE Decoder Stream", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
+    @ProfilingContext4DebugL1("Run VAE Decoder Stream", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
     def run_vae_decoder_stream(self, latents):
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             self.vae_decoder = self.load_vae_decoder()
@@ -449,10 +457,10 @@ class DefaultRunner(BaseRunner):
                 logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} ✅")
             return {"video": None}
 
-    @ProfilingContext4DebugL1("RUN pipeline", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_worker_request_duration, metrics_labels=["DefaultRunner"])
+    @ProfilingContext4DebugL1("RUN pipeline", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_worker_request_duration, metrics_labels=["DefaultRunner"])
     def run_pipeline(self, input_info):
         if GET_RECORDER_MODE():
-            monitor_cli.lightx2v_worker_request_count.inc()
+            get_monitor_cli().lightx2v_worker_request_count.inc()
         self.input_info = input_info
 
         if self.config["use_prompt_enhancer"]:
@@ -463,7 +471,7 @@ class DefaultRunner(BaseRunner):
         gen_video_final = self.run_main()
 
         if GET_RECORDER_MODE():
-            monitor_cli.lightx2v_worker_request_success.inc()
+            get_monitor_cli().lightx2v_worker_request_success.inc()
         return gen_video_final
 
     def __del__(self):
