@@ -354,8 +354,6 @@ class ModelScheduler:
                         # 尝试释放numpy数组等大对象
                         if hasattr(obj, '__array__') or hasattr(obj, 'numpy'):
                             try:
-                                if hasattr(obj, 'numpy'):
-                                    del obj.numpy()
                                 del obj
                             except Exception as e:
                                 pass
