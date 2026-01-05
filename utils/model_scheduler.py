@@ -69,7 +69,10 @@ def model_worker_process(task_queue, result_queue):
                         raise RuntimeError("模型未加载")
                     
                     # 执行推理
-                    result = model_pipeline(**msg.params)
+                    if hasattr(model_pipeline, 'infer'):
+                        result = model_pipeline.infer(**msg.params)
+                    else:
+                        result = model_pipeline(**msg.params)
                     logger.info(f"模型工作进程任务完成: {msg.task_type}")
                     result_queue.put(ModelMessage('result', msg.task_type, result=result))
                 except Exception as e:

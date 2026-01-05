@@ -241,7 +241,7 @@ class TaskWorker:
         
         if task_type == 'text2video':
             # 文生视频
-            pipe.infer(
+            pipe(
                 seed=seed,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
@@ -259,7 +259,7 @@ class TaskWorker:
             if not os.path.exists(image_path):
                 raise FileNotFoundError(f"图片文件不存在: {image_path}")
             
-            pipe.infer(
+            pipe(
                 seed=seed,
                 image_path=image_path,
                 prompt=prompt,
