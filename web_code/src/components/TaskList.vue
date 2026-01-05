@@ -717,8 +717,9 @@ onUnmounted(() => {
 
 /* 任务列表 */
 .tasks {
-  column-count: 3;
-  column-gap: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .task-item {
@@ -728,8 +729,8 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
-  break-inside: avoid;
-  margin-bottom: 16px;
+  flex: 0 0 calc(33.333% - 16px);
+  box-sizing: border-box;
 }
 
 .task-item:hover {
