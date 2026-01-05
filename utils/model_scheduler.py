@@ -23,7 +23,6 @@ def model_worker_process(task_queue, result_queue):
     """模型工作进程，负责加载和运行模型"""
     import torch
     from utils.logger import logger
-    from config.config import config
     
     # 重定向日志
     logger.info("模型工作进程启动")
@@ -155,17 +154,38 @@ def _load_zimage_t2i_model_worker(params):
 
 def _load_qwen_i2i_model_worker(params):
     """工作进程内部加载qwen图生图模型"""
-    from modelscope import QwenImageEditPlusPipeline
+    from modelscope import QwenImageEditPlusPipeline, QwenImageTransformer2DModel
     import torch
-    
+    from transformers import Qwen2_5_VLForConditionalGeneration
+
     cpu_offload = _is_cpu_offload_enabled_image_worker()
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2511"))
     
     # 设备配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.bfloat16
+
+    transformer = QwenImageTransformer2DModel.from_pretrained(
+        model_path,
+        subfolder="transformer",
+        torch_dtype=torch_dtype
+    )
+    transformer = transformer.to("cpu")
+    text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+        model_path,
+        subfolder="text_encoder",
+        dtype=torch_dtype
+    )
+    text_encoder = text_encoder.to("cpu")
+
+    pipe = QwenImageEditPlusPipeline.from_pretrained(
+        model_path,
+        local_files_only=True,
+        torch_dtype=torch_dtype,
+        transformer=transformer,
+        text_encoder=text_encoder
+    )
     
-    pipe = QwenImageEditPlusPipeline.from_pretrained(model_path, torch_dtype=torch_dtype)
     pipe.set_progress_bar_config(disable=None)
     # 启用CPU卸载（节省显存）
     if cpu_offload:
