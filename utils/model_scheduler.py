@@ -155,86 +155,21 @@ def _load_zimage_t2i_model_worker(params):
 
 def _load_qwen_i2i_model_worker(params):
     """工作进程内部加载qwen图生图模型"""
-    from diffusers import QwenImageEditPlusPipeline, QwenImageTransformer2DModel, FlowMatchEulerDiscreteScheduler
-    from transformers import Qwen2_5_VLForConditionalGeneration
-    import math
+    from modelscope import QwenImageEditPlusPipeline
     import torch
     
     cpu_offload = _is_cpu_offload_enabled_image_worker()
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2511"))
-    max_side_length = params.get('max_side_length', 896)
-    use_lighting = params.get('use_lighting', False)
     
     # 设备配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.bfloat16
     
-    # 加载transformer组件
-    transformer = QwenImageTransformer2DModel.from_pretrained(
-        model_path,
-        subfolder="transformer",
-        torch_dtype=torch_dtype
-    )
-    if cpu_offload:
-        transformer = transformer.to("cpu")
-    else:
-        transformer.to(device)
-    
-    # 加载text_encoder组件
-    text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_path,
-        subfolder="text_encoder",
-        dtype=torch_dtype
-    )
-    if cpu_offload:
-        text_encoder = text_encoder.to("cpu")
-    else:
-        text_encoder.to(device)
-    
-    # 加载调度器和pipeline
-    if use_lighting:
-        scheduler_config = {
-            "base_image_seq_len": 256,
-            "base_shift": math.log(3),
-            "invert_sigmas": False,
-            "max_image_seq_len": 8192,
-            "max_shift": math.log(3),
-            "num_train_timesteps": 1000,
-            "shift": 1.0,
-            "shift_terminal": None,
-            "stochastic_sampling": False,
-            "time_shift_type": "exponential",
-            "use_beta_sigmas": False,
-            "use_dynamic_shifting": True,
-            "use_exponential_sigmas": False,
-            "use_karras_sigmas": False,
-        }
-        scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
-        
-        pipe = QwenImageEditPlusPipeline.from_pretrained(
-            model_path,
-            local_files_only=True,
-            torch_dtype=torch_dtype,
-            transformer=transformer,
-            text_encoder=text_encoder,
-            scheduler=scheduler
-        )
-    else:
-        pipe = QwenImageEditPlusPipeline.from_pretrained(
-            model_path,
-            local_files_only=True,
-            torch_dtype=torch_dtype,
-            transformer=transformer,
-            text_encoder=text_encoder
-        )
-    
+    pipe = QwenImageEditPlusPipeline.from_pretrained(model_path, torch_dtype=torch_dtype)
+    pipe.set_progress_bar_config(disable=None)
     # 启用CPU卸载（节省显存）
     if cpu_offload:
         pipe.enable_model_cpu_offload()
-        pipe.vae.enable_slicing()
-        pipe.vae.enable_tiling()
-        pipe.safety_checker = None
-        pipe.feature_extractor = None
     else:
         pipe.to(device)
 
