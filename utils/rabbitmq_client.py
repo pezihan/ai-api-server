@@ -140,6 +140,32 @@ class RabbitMQClient:
         except Exception as e:
             logger.warning(f"停止消息消费时出错: {str(e)}")
     
+    @_reconnect_wrapper
+    def basic_ack(self, delivery_tag, multiple=False):
+        """确认消息"""
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.basic_ack(delivery_tag=delivery_tag, multiple=multiple)
+                logger.info(f"消息确认成功: delivery_tag={delivery_tag}")
+            else:
+                logger.warning("通道已关闭，无法执行ack操作")
+        except Exception as e:
+            log_error(e, "RabbitMQClient", f"basic_ack delivery_tag={delivery_tag}")
+            raise
+    
+    @_reconnect_wrapper
+    def basic_nack(self, delivery_tag, multiple=False, requeue=True):
+        """拒绝消息"""
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.basic_nack(delivery_tag=delivery_tag, multiple=multiple, requeue=requeue)
+                logger.info(f"消息拒绝成功: delivery_tag={delivery_tag}, requeue={requeue}")
+            else:
+                logger.warning("通道已关闭，无法执行nack操作")
+        except Exception as e:
+            log_error(e, "RabbitMQClient", f"basic_nack delivery_tag={delivery_tag}")
+            raise
+    
     def close(self):
         """关闭连接"""
         try:
