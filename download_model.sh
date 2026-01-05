@@ -1,5 +1,8 @@
-WAN_21_DISTILL_MODELS_DIR="/models/wan/Wan2.1-Distill-Models"
-WAN_22_DISTILL_MODELS_DIR="/models/wan/Wan2.2-Distill-Models"
+WAN_21_DISTILL_MODELS_DIR="/models/Wan2.1-Distill-Models"
+WAN_22_DISTILL_MODELS_DIR="/models/Wan2.2-Distill-Models"
+Z_IMAGE_MODEL_DIR="/models/Z-Image-Turbo"
+QWEN_IMAGE_EDIT_MODEL_DIR="/models/Qwen-Image-Edit-2511"
+
 # 下载Wan2.1-T2V-14B模型
 mkdir -p $WAN_21_DISTILL_MODELS_DIR
 
@@ -54,3 +57,9 @@ huggingface-cli download Wan-AI/Wan2.2-I2V-A14B \
 huggingface-cli download Wan-AI/Wan2.2-I2V-A14B \
     --local-dir $WAN_22_DISTILL_MODELS_DIR \
     --include "google/**/*"
+
+modelscope download --model Tongyi-MAI/Z-Image-Turbo \
+ --local_dir $Z_IMAGE_MODEL_DIR
+
+modelscope download --model Qwen/Qwen-Image-Edit-2511 \
+ --local_dir $QWEN_IMAGE_EDIT_MODEL_DIR

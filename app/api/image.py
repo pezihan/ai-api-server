@@ -4,12 +4,7 @@ from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.logger import logger
 from middlewares.auth import auth_required
-import uuid
-import os
-import base64
 from PIL import Image
-import io
-
 # 创建命名空间
 image_ns = Namespace('image', description='图片生成接口')
 
@@ -18,7 +13,7 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=10, description='推理步数'),
+    'steps': fields.Integer(required=False, default=50, description='推理步数'),
     'width': fields.Integer(required=False, default=512, description='图片宽度'),
     'height': fields.Integer(required=False, default=512, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子')

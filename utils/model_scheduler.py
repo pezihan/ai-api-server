@@ -138,8 +138,7 @@ def _load_zimage_t2i_model_worker(params):
     cpu_offload = _is_cpu_offload_enabled_image_worker()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.bfloat16
-    model_path = params.get('model_path', "Tongyi-MAI/Z-Image-Turbo")
-    
+    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Z-Image-Turbo"))
     pipe = ZImagePipeline.from_pretrained(
         model_path,
         torch_dtype=torch_dtype
@@ -162,7 +161,7 @@ def _load_qwen_i2i_model_worker(params):
     import torch
     
     cpu_offload = _is_cpu_offload_enabled_image_worker()
-    model_path = params.get('model_path', "Qwen/Qwen-Image-Edit-2511")
+    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2511"))
     max_side_length = params.get('max_side_length', 896)
     use_lighting = params.get('use_lighting', False)
     
@@ -258,7 +257,7 @@ def _load_wan_t2v_model_worker(params):
         traceback.print_exc()
         raise
     
-    model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.1-Distill-Models"))
+    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Wan2.1-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_t2v_distill_4step_cfg.json"))
     model_cls = params.get('model_cls', "wan2.1_distill")
     
@@ -287,7 +286,7 @@ def _load_wan_i2v_model_worker(params):
     """工作进程内部加载wan图生视频模型"""
     from utils.wan import WanPipeRunner
     
-    model_path = params.get('model_path', os.path.join(config.WAN_MODEL_DIR, "Wan2.2-Distill-Models"))
+    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Wan2.2-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
     model_cls = params.get('model_cls', "wan2.2_moe")
     

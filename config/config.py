@@ -32,7 +32,7 @@ class Config:
     FILE_SAVE_DIR = os.environ.get('FILE_SAVE_DIR', '/tmp')
 
     # wan模型目录
-    WAN_MODEL_DIR = os.environ.get('WAN_MODEL_DIR', '/models/wan')
-    WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', './config/wan')
+    MODEL_DIR = os.environ.get('MODEL_DIR', '/models')
+    WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', './config')
 # 创建配置实例
 config = Config()
