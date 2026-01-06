@@ -22,7 +22,9 @@ WORKDIR /workspace
 COPY requirements.api.txt ./
 
 # 设置 pip 镜像源并安装依赖
-RUN pip install -v --no-cache-dir \
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
+    echo "nameserver 114.114.114.114" >> /etc/resolv.conf && \
+    pip install -v --no-cache-dir \
     -i https://mirrors.aliyun.com/pypi/simple/ \
     -i https://pypi.org/simple \
     -r ./requirements.api.txt
