@@ -19,7 +19,7 @@ WORKDIR /workspace
 COPY requirements.api.txt ./
 
 # 设置 pip 镜像源并安装依赖
-RUN pip install --no-cache-dir \
+RUN pip install -v --no-cache-dir \
     -i https://mirrors.aliyun.com/pypi/simple/ \
     -i https://pypi.org/simple \
     -r ./requirements.api.txt
