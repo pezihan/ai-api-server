@@ -42,9 +42,9 @@ const aspectRatioMap = {
     square: { width: 544, height: 544 }
   },
   video: {
-    vertical: { width: 720, height: 1280 },
-    horizontal: { width: 1280, height: 720 },
-    square: { width: 720, height: 720 }
+    vertical: { width: 544, height: 960 },
+    horizontal: { width: 960, height: 544 },
+    square: { width: 544, height: 544 }
   }
 };
 

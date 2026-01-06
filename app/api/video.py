@@ -13,8 +13,8 @@ text2video_model = video_ns.model('Text2VideoRequest', {
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
     'steps': fields.Integer(required=False, default=4, description='推理步数'),
-    'width': fields.Integer(required=False, default=720, description='视频宽度'),
-    'height': fields.Integer(required=False, default=1280, description='视频高度'),
+    'width': fields.Integer(required=False, default=544, description='视频宽度'),
+    'height': fields.Integer(required=False, default=960, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数')
 })
 
@@ -24,8 +24,8 @@ img2video_model = video_ns.model('Img2VideoRequest', {
     'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
     'seed': fields.Integer(required=False, description='随机种子'),
     'steps': fields.Integer(required=False, default=4, description='推理步数'),
-    'width': fields.Integer(required=False, default=720, description='视频宽度'),
-    'height': fields.Integer(required=False, default=1280, description='视频高度'),
+    'width': fields.Integer(required=False, default=544, description='视频宽度'),
+    'height': fields.Integer(required=False, default=960, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数')
 })
 
@@ -42,8 +42,8 @@ class Text2Video(Resource):
             negative_prompt = data.get('negative_prompt', '')
             seed = data.get('seed')
             steps = data.get('steps', 4)
-            width = data.get('width', 720)
-            height = data.get('height', 1280)
+            width = data.get('width', 544)
+            height = data.get('height', 960)
             num_frames = data.get('num_frames', 81)
             
             # 验证参数
@@ -87,8 +87,8 @@ class Img2Video(Resource):
             image_path = data.get('image_path')
             seed = data.get('seed')
             steps = data.get('steps', 4)
-            width = data.get('width', 720)
-            height = data.get('height', 1280)
+            width = data.get('width', 544)
+            height = data.get('height', 960)
             num_frames = data.get('num_frames', 81)
             
             # 验证参数
