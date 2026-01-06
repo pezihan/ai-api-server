@@ -104,8 +104,8 @@ class Img2Video(Resource):
                 'image_path': image_path,
                 'seed': seed,
                 'steps': steps,
-                'width': width,
-                'height': height,
+                # 'width': width, // 传入之后没效果,会保持图片的分辨率比例
+                # 'height': height,
                 'num_frames': num_frames
             }
             
