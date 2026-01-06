@@ -20,8 +20,8 @@ const formData = reactive({
   prompt: '',
   negative_prompt: '',
   seed: Math.floor(Math.random() * 1000000),
-  width: 512,
-  height: 512,
+  width: 544,
+  height: 544,
   num_frames: 81,
   aspect_ratio: 'vertical' // vertical, horizontal, square
 });
