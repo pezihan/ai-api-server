@@ -20,7 +20,7 @@ npm install
 
 # 构建前端
 echo "构建前端项目..."
-npm run build
+npm run build-only
 
 cd ..
 echo "=== 前端网页编译完成 ==="
