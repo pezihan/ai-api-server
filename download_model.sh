@@ -7,23 +7,23 @@ QWEN_IMAGE_EDIT_MODEL_DIR="/home/ubuntu/models/Qwen-Image-Edit-2509-4bit"
 mkdir -p $WAN_21_DISTILL_MODELS_DIR
 
 modelscope download --model  lightx2v/Wan2.1-Distill-Models \
-    --local-dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_21_DISTILL_MODELS_DIR \
     --include "wan2.1_t2v_14b_lightx2v_4step.safetensors"
 
 modelscope download --model  lightx2v/Wan2.1-Distill-Models \
-    --local-dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_21_DISTILL_MODELS_DIR \
     --include "config.json"
 
 modelscope download --model  Wan-AI/Wan2.1-T2V-14B \
-    --local-dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_21_DISTILL_MODELS_DIR \
     --include "Wan2.1_VAE.pth"
 
 modelscope download --model  Wan-AI/Wan2.1-T2V-14B \
-    --local-dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_21_DISTILL_MODELS_DIR \
     --include "models_t5_umt5-xxl-enc-bf16.pth"
 
 modelscope download --model  Wan-AI/Wan2.1-T2V-14B \
-    --local-dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_21_DISTILL_MODELS_DIR \
     --include "google/**/*"
 
 
@@ -35,27 +35,27 @@ mkdir -p $WAN_22_HIGH_NOISE_DIR
 mkdir -p $WAN_22_LOW_NOISE_DIR
 
 modelscope download --model  lightx2v/Wan2.2-Distill-Models \
-    --local-dir $WAN_22_HIGH_NOISE_DIR \
+    --local_dir $WAN_22_HIGH_NOISE_DIR \
     --include "wan2.2_i2v_A14b_high_noise_lightx2v_4step.safetensors"
 
 modelscope download --model  lightx2v/Wan2.2-Distill-Models \
-    --local-dir $WAN_22_LOW_NOISE_DIR \
+    --local_dir $WAN_22_LOW_NOISE_DIR \
     --include "wan2.2_i2v_A14b_low_noise_lightx2v_4step.safetensors"
 
 modelscope download --model  lightx2v/Wan2.2-Distill-Models \
-    --local-dir $WAN_22_DISTILL_MODELS_DIR \
+    --local_dir $WAN_22_DISTILL_MODELS_DIR \
     --include "config.json"
 
 modelscope download --model  Wan-AI/Wan2.2-I2V-A14B \
-    --local-dir $WAN_22_DISTILL_MODELS_DIR \
+    --local_dir $WAN_22_DISTILL_MODELS_DIR \
     --include "Wan2.1_VAE.pth"
 
 modelscope download --model  Wan-AI/Wan2.2-I2V-A14B \
-    --local-dir $WAN_22_DISTILL_MODELS_DIR \
+    --local_dir $WAN_22_DISTILL_MODELS_DIR \
     --include "models_t5_umt5-xxl-enc-bf16.pth"
 
 modelscope download --model  Wan-AI/Wan2.2-I2V-A14B \
-    --local-dir $WAN_22_DISTILL_MODELS_DIR \
+    --local_dir $WAN_22_DISTILL_MODELS_DIR \
     --include "google/**/*"
 
 mkdir -p $Z_IMAGE_MODEL_DIR
