@@ -24,7 +24,7 @@ COPY requirements.worker.txt ./
 # 安装基础依赖
 RUN pip install -v -r ./requirements.worker.txt --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/
 
-COPY ./LightX2V ./
+COPY ./LightX2V ./LightX2V
 # 安装LightX2V
 WORKDIR /workspace/LightX2V
 RUN pip install -v -e . --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/
