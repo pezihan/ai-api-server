@@ -126,10 +126,13 @@ def model_worker_process(task_queue, result_queue):
                     result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
     
     except Exception as e:
-        logger.exception(f"模型工作进程异常退出: {e}")
-        # 尝试发送错误消息
+        # 捕获并记录详细的异常信息，包括堆栈
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"模型工作进程异常退出: {e}\n{error_traceback}")
+        # 尝试发送错误消息，包含详细的堆栈信息
         try:
-            result_queue.put(ModelMessage('error', None, error=f"模型工作进程异常退出: {e}"))
+            result_queue.put(ModelMessage('error', None, error=f"模型工作进程异常退出: {e}\n{error_traceback}"))
         except:
             pass
     finally:
@@ -458,7 +461,16 @@ class ModelScheduler:
             
             # 检查进程是否还在运行
             if not self.model_process.is_alive():
-                raise RuntimeError("模型工作进程已意外退出")
+                # 尝试从队列中获取错误信息
+                error_message = "模型工作进程已意外退出"
+                try:
+                    if not self.result_queue.empty():
+                        error_msg = self.result_queue.get()
+                        if error_msg.msg_type == 'error':
+                            error_message = error_msg.error
+                except:
+                    pass
+                raise RuntimeError(error_message)
             
             time.sleep(0.1)
 
