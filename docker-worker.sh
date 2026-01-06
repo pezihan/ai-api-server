@@ -33,26 +33,11 @@ docker rmi -f ${image_tag}:latest 2>/dev/null || true
 docker tag ${image_tag}:update ${image_tag}:latest
 docker rmi ${image_tag}:update
 
-# 计算内存限制（总内存的80%）
-echo "=== 计算内存限制 ==="
-TOTAL_MEM=$(free -g | awk '/Mem:/ {print $2}')
-if [ -z "$TOTAL_MEM" ] || [ "$TOTAL_MEM" -eq 0 ]; then
-    TOTAL_MEM=$(free -m | awk '/Mem:/ {print int($2/1024)}')
-fi
-if [ -z "$TOTAL_MEM" ] || [ "$TOTAL_MEM" -eq 0 ]; then
-    echo "警告: 无法获取系统内存信息，使用默认值16GB"
-    MEM_LIMIT="16g"
-else
-    MEM_LIMIT=$(echo "$TOTAL_MEM * 0.9" | bc | awk '{print int($1)}')g
-    echo "系统总内存: ${TOTAL_MEM}GB, 设置容器内存限制: ${MEM_LIMIT}"
-fi
-
 # 运行新容器
 echo "=== 启动新容器 ==="
 docker run --restart=always \
  --name ${image_tag} \
  --gpus all \
- --memory ${MEM_LIMIT} \
  -v /home/ubuntu/tmp:/tmp \
  -v /home/ubuntu/models:/models \
  -e HF_ENDPOINT=https://hf-mirror.com \

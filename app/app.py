@@ -62,8 +62,8 @@ def handle_exception(e):
 
 # 静态文件服务 - 提供FILE_SAVE_DIR目录下的文件访问
 import os
-# 获取FILE_SAVE_DIR的最后一个目录名作为路由前缀
-file_dir_prefix = os.path.basename(config.FILE_SAVE_DIR.rstrip('/'))
+# 使用整个FILE_SAVE_DIR路径作为路由前缀（去除前导斜杠）
+file_dir_prefix = config.FILE_SAVE_DIR.rstrip('/').lstrip('/')
 # 创建动态路由
 @app.route(f'/{file_dir_prefix}/<path:filename>')
 def serve_file(filename):
