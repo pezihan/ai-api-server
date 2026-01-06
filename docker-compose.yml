@@ -29,4 +29,5 @@ services:
       - RABBITMQ_DEFAULT_PASS=admin
       - RABBITMQ_DEFAULT_VHOST=/
     volumes:
-      - /home/ubuntu/rabbitmq:/var/lib/rabbitmq
+      - /home/ubuntu/rabbitmq/data:/var/lib/rabbitmq
+      - /home/ubuntu/rabbitmq/config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
