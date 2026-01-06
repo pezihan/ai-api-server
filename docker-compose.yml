@@ -8,10 +8,9 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    environment:
-      - REDIS_PASSWORD=123456
     command:
       - redis-server
+      - --requirepass 123456
       - --appendonly yes
       - --appendfsync everysec
     volumes:
