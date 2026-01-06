@@ -1,7 +1,5 @@
-import torch
 import os
 import gc
-import sys
 import traceback
 import multiprocessing as mp
 import time
@@ -9,8 +7,8 @@ from utils.logger import logger
 from config.config import config
 
 # Set PyTorch CUDA memory allocation configuration to avoid fragmentation
-if torch.cuda.is_available():
-    os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+    
 
 # 定义进程间通信的消息类型
 class ModelMessage:
@@ -290,6 +288,7 @@ def _load_wan_i2v_model_worker(params):
     return pipe
 
 def _is_cpu_offload_enabled_image_worker() -> bool:
+    import torch
     """工作进程内部判断是否需要开启 CPU 卸载功能"""
     if not torch.cuda.is_available():
         return False
@@ -330,6 +329,7 @@ class ModelScheduler:
         mp.set_start_method('spawn', force=True)
 
     def is_cpu_offload_enabled_image(self) -> bool:
+        import torch
         """
         判断是否需要开启 CPU 卸载功能
         判定条件：若存在可用 NVIDIA GPU 且其显存小于 32GB，则返回 True（开启 CPU 卸载）；否则返回 False（不开启）
@@ -510,6 +510,7 @@ class ModelScheduler:
         return inference
     
     def get_gpu_memory_info(self):
+        import torch
         """
         获取GPU内存使用信息
         

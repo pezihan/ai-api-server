@@ -41,9 +41,9 @@ class RabbitMQClient:
                     port=config.RABBITMQ_PORT,
                     virtual_host=config.RABBITMQ_VIRTUAL_HOST,
                     credentials=credentials,
-                    socket_timeout=10,
+                    socket_timeout=30,
                     heartbeat=60,
-                    blocked_connection_timeout=300
+                    blocked_connection_timeout=600
                 )
 
                 # 建立连接

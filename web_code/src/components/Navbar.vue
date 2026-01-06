@@ -44,7 +44,7 @@ onMounted(() => {
 <template>
   <nav class="navbar">
     <div class="navbar-container">
-      <h1 class="app-title">AI 生成平台</h1>
+      <h1 class="app-title"></h1>
       
       <!-- 用户信息和登出按钮 -->
       <div v-if="isLoggedIn" class="user-info">

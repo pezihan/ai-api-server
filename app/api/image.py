@@ -1,10 +1,9 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.logger import logger
 from middlewares.auth import auth_required
-from PIL import Image
+
 # 创建命名空间
 image_ns = Namespace('image', description='图片生成接口')
 

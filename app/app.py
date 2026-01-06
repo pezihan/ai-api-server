@@ -28,7 +28,8 @@ api = Api(
     version='1.0',
     title='AI API Server',
     description='AI API服务接口文档',
-    doc='/api/docs'  # 文档访问路径
+    doc='/api/docs',  # 文档访问路径
+    prefix='/api'  # API前缀
 )
 
 # 注册命名空间
@@ -79,6 +80,32 @@ def serve_file(filename):
     
     logger.info(f"访问文件: {safe_filename} 来自目录: {config.FILE_SAVE_DIR}")
     return send_from_directory(config.FILE_SAVE_DIR, safe_filename)
+
+# 静态文件服务 - 提供前端打包文件访问
+import os
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dist_web')
+if os.path.exists(static_dir):
+    logger.info(f"Serving static files from: {static_dir}")
+    # 设置静态文件目录
+    app.static_folder = static_dir
+    app.static_url_path = ''
+    
+    # 提供index.html作为默认首页
+    @app.route('/')
+    def serve_index():
+        return send_from_directory(static_dir, 'index.html')
+    
+    # 处理单页应用的路由，所有未匹配的路由都返回index.html
+    @app.route('/<path:path>')
+    def serve_spa(path):
+        # 如果文件存在则返回文件，否则返回index.html
+        file_path = os.path.join(static_dir, path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return send_from_directory(static_dir, path)
+        else:
+            return send_from_directory(static_dir, 'index.html')
+else:
+    logger.warning(f"Static directory not found: {static_dir}")
 
 # 404错误处理
 @app.errorhandler(404)

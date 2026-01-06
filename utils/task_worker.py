@@ -3,7 +3,6 @@ import os
 import base64
 import pika
 from PIL import Image
-import torch
 import cv2
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
@@ -165,6 +164,7 @@ class TaskWorker:
         guidance_scale = task_params.get('guidance_scale', 5.0)
         
         # 设置随机生成器
+        import torch
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
         
         if task_type == 'text2img':
