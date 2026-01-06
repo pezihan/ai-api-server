@@ -43,7 +43,7 @@ if [ -z "$TOTAL_MEM" ] || [ "$TOTAL_MEM" -eq 0 ]; then
     echo "警告: 无法获取系统内存信息，使用默认值16GB"
     MEM_LIMIT="16g"
 else
-    MEM_LIMIT=$(echo "$TOTAL_MEM * 0.8" | bc | awk '{print int($1)}')g
+    MEM_LIMIT=$(echo "$TOTAL_MEM * 0.9" | bc | awk '{print int($1)}')g
     echo "系统总内存: ${TOTAL_MEM}GB, 设置容器内存限制: ${MEM_LIMIT}"
 fi
 
