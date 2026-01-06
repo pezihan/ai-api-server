@@ -53,35 +53,29 @@ class TaskWorker:
                         # 执行任务
                         self._process_task(task_id, task_info)
 
-                        # 任务处理完成，立即确认消息
-                        try:
-                            ch.basic_ack(delivery_tag=method.delivery_tag)
-                            logger.info(f"任务处理完成并确认: {task_id}")
-                        except (pika.exceptions.AMQPConnectionError,
-                                pika.exceptions.AMQPChannelError,
-                                pika.exceptions.StreamLostError) as ack_error:
-                            logger.warning(f"连接断开，消息确认失败: {ack_error}")
-                            # 连接断开，消息会自动重新入队，通过去重机制避免重复处理
-                        except Exception as ack_error:
-                            logger.error(f"执行ack操作失败: {ack_error}")
+                        # 任务处理完成，记录日志
+                        logger.info(f"任务处理完成: {task_id}")
                     except Exception as e:
                         logger.error(f"处理任务时发生异常: {e}")
-                        # 使用rabbitmq_client的basic_nack方法，利用重连机制
-                        try:
-                            rabbitmq_client.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-                        except Exception as nack_error:
-                            logger.error(f"执行nack操作失败: {nack_error}")
 
                 # 创建并启动任务处理线程
                 task_thread = threading.Thread(target=process_task_in_thread)
                 task_thread.daemon = True
                 task_thread.start()
 
+                # 在主线程中确认消息，避免线程安全问题
+                try:
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
+                    logger.info(f"消息确认成功: {task_id}")
+                except Exception as ack_error:
+                    logger.error(f"执行ack操作失败: {ack_error}")
+
             except Exception as e:
                 logger.error(f"处理消息时发生异常: {e}")
-                # 使用rabbitmq_client的basic_nack方法，利用重连机制
+                # 在主线程中拒绝消息
                 try:
-                    rabbitmq_client.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    logger.info(f"消息拒绝成功: {task_id}")
                 except Exception as nack_error:
                     logger.error(f"执行nack操作失败: {nack_error}")
         

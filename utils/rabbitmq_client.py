@@ -42,7 +42,7 @@ class RabbitMQClient:
                     virtual_host=config.RABBITMQ_VIRTUAL_HOST,
                     credentials=credentials,
                     socket_timeout=30,
-                    heartbeat=30,  # 缩短心跳间隔，提高检测速度
+                    heartbeat=60,  # 恢复默认值，避免线程冲突
                     blocked_connection_timeout=600,
                     tcp_options={
                         "TCP_KEEPALIVE": 1,
@@ -58,8 +58,8 @@ class RabbitMQClient:
 
                 logger.info(f"RabbitMQ连接成功: {config.RABBITMQ_HOST}:{config.RABBITMQ_PORT} (尝试次数: {attempt + 1})")
                 
-                # 启动心跳检测线程
-                self._start_heartbeat_check()
+                # 移除心跳检测线程，避免线程安全问题
+                # self._start_heartbeat_check()
                 
                 return
             except Exception as e:
@@ -81,25 +81,6 @@ class RabbitMQClient:
                 self.connection.close()
         except Exception as e:
             logger.warning(f"关闭RabbitMQ连接时出错: {str(e)}")
-    
-    def _start_heartbeat_check(self):
-        """启动心跳检测线程"""
-        def heartbeat_check():
-            while True:
-                try:
-                    if self.connection and self.connection.is_open:
-                        # 发送心跳
-                        self.connection.process_data_events()
-                        time.sleep(10)  # 每10秒检查一次
-                    else:
-                        break
-                except Exception as e:
-                    logger.warning(f"心跳检测异常: {str(e)}")
-                    break
-        
-        self.heartbeat_thread = threading.Thread(target=heartbeat_check)
-        self.heartbeat_thread.daemon = True
-        self.heartbeat_thread.start()
     
     def _reconnect_wrapper(func):
         """重连装饰器"""
