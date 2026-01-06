@@ -501,7 +501,7 @@ class ModelScheduler:
                 
                 # 发送加载模型消息
                 msg = ModelMessage('load', task_type, params=kwargs)
-                result_msg = self._send_message(msg, timeout=900)  # 增加超时时间
+                result_msg = self._send_message(msg, timeout=600)  # 增加超时时间
                 
                 if result_msg.msg_type == 'error':
                     raise RuntimeError(f"模型加载失败: {result_msg.error}")
