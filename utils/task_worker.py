@@ -2,6 +2,7 @@ import time
 import os
 import base64
 import pika
+import threading
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
@@ -46,23 +47,38 @@ class TaskWorker:
                 render_start_time = time.time()
                 task_manager.update_task_render_time(task_id, 'start', render_start_time)
 
-                # 执行任务
-                self._process_task(task_id, task_info)
+                # 在单独的线程中处理任务，避免阻塞RabbitMQ连接线程
+                def process_task_in_thread():
+                    try:
+                        # 执行任务
+                        self._process_task(task_id, task_info)
 
-                # 任务处理完成，立即确认消息（避免连接断开导致消息重复）
-                try:
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-                    logger.info(f"任务处理完成并确认: {task_id}")
-                except (pika.exceptions.AMQPConnectionError,
-                        pika.exceptions.AMQPChannelError,
-                        pika.exceptions.StreamLostError) as ack_error:
-                    logger.warning(f"连接断开，消息确认失败: {ack_error}")
-                    # 连接断开，消息会自动重新入队，通过去重机制避免重复处理
-                except Exception as ack_error:
-                    logger.error(f"执行ack操作失败: {ack_error}")
+                        # 任务处理完成，立即确认消息
+                        try:
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            logger.info(f"任务处理完成并确认: {task_id}")
+                        except (pika.exceptions.AMQPConnectionError,
+                                pika.exceptions.AMQPChannelError,
+                                pika.exceptions.StreamLostError) as ack_error:
+                            logger.warning(f"连接断开，消息确认失败: {ack_error}")
+                            # 连接断开，消息会自动重新入队，通过去重机制避免重复处理
+                        except Exception as ack_error:
+                            logger.error(f"执行ack操作失败: {ack_error}")
+                    except Exception as e:
+                        logger.error(f"处理任务时发生异常: {e}")
+                        # 使用rabbitmq_client的basic_nack方法，利用重连机制
+                        try:
+                            rabbitmq_client.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                        except Exception as nack_error:
+                            logger.error(f"执行nack操作失败: {nack_error}")
+
+                # 创建并启动任务处理线程
+                task_thread = threading.Thread(target=process_task_in_thread)
+                task_thread.daemon = True
+                task_thread.start()
 
             except Exception as e:
-                logger.error(f"处理任务时发生异常: {e}")
+                logger.error(f"处理消息时发生异常: {e}")
                 # 使用rabbitmq_client的basic_nack方法，利用重连机制
                 try:
                     rabbitmq_client.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
@@ -238,8 +254,8 @@ class TaskWorker:
         negative_prompt = task_params.get('negative_prompt', '')
         seed = task_params.get('seed')
         steps = task_params.get('steps', 4)
-        width = task_params.get('width', 480)
-        height = task_params.get('height', 832)
+        width = task_params.get('width', 544)
+        height = task_params.get('height', 960)
         num_frames = task_params.get('num_frames', 81)
         
         # 加载wan模型
