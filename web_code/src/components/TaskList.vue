@@ -59,8 +59,6 @@ defineEmits<{
 
 // 获取任务列表
 const fetchTasks = async () => {
-  // 重置到第一页以确保显示最新任务
-  currentPage.value = 1;
   try {
     isLoading.value = true;
     const response = await get<{total: number; page: number; page_size: number; tasks: Task[]}>(`/task/list?page=${currentPage.value}&page_size=${pageSize.value}`);
