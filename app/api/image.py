@@ -12,7 +12,7 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=50, description='推理步数'),
+    'steps': fields.Integer(required=False, default=30, description='推理步数'),
     'width': fields.Integer(required=False, default=544, description='图片宽度'),
     'height': fields.Integer(required=False, default=544, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子')
