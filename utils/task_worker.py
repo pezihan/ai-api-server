@@ -2,13 +2,12 @@ import time
 import os
 import base64
 import pika
-import cv2
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.rabbitmq_client import rabbitmq_client
 from config.config import config
-
+from PIL import Image
 class TaskWorker:
     """任务工作器，负责处理生成任务"""
 
@@ -150,7 +149,6 @@ class TaskWorker:
             dict: 处理结果
         """
         import torch
-        from PIL import Image
         # 创建输出目录
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-images")
         os.makedirs(output_dir, exist_ok=True)
@@ -233,6 +231,8 @@ class TaskWorker:
         Returns:
             dict: 处理结果
         """
+        import cv2
+
         prompt = task_params.get('prompt')
         negative_prompt = task_params.get('negative_prompt', '')
         seed = task_params.get('seed')
