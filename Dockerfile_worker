@@ -11,7 +11,10 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && 
 RUN apt-get update -y --fix-missing && \
     apt-get install -y --no-install-recommends \
         python3.11 python3.11-dev python3.11-distutils \
-        git build-essential curl wget git-lfs sox libsox-dev && \
+        git build-essential curl wget git-lfs sox libsox-dev libgl1 \
+        libjpeg-dev zlib1g-dev libpng-dev libtiff-dev libopenjp2-7-dev \
+        libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+        libxvidcore-dev libx264-dev libatlas-base-dev gfortran && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
     ln -sf /usr/bin/python3.11 /usr/bin/python && \
     ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
