@@ -2,7 +2,6 @@ import time
 import os
 import base64
 import pika
-from PIL import Image
 import cv2
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
@@ -150,6 +149,8 @@ class TaskWorker:
         Returns:
             dict: 处理结果
         """
+        import torch
+        from PIL import Image
         # 创建输出目录
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-images")
         os.makedirs(output_dir, exist_ok=True)
@@ -164,7 +165,6 @@ class TaskWorker:
         guidance_scale = task_params.get('guidance_scale', 5.0)
         
         # 设置随机生成器
-        import torch
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
         
         if task_type == 'text2img':
