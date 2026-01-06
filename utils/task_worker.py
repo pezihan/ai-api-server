@@ -161,15 +161,14 @@ class TaskWorker:
         seed = task_params.get('seed')
         steps = task_params.get('steps', 9)
         guidance_scale = task_params.get('guidance_scale', 5.0)
-        
+        width = task_params.get('width', 512)
+        height = task_params.get('height', 512)
+
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
         
         if task_type == 'text2img':
             # 文生图任务
-            width = task_params.get('width', 512)
-            height = task_params.get('height', 512)
-           
             # 执行生成
             output = pipe(
                 prompt=prompt,
@@ -201,7 +200,9 @@ class TaskWorker:
                 generator=generator,
                 true_cfg_scale=4.0,
                 guidance_scale=guidance_scale,
-                num_images_per_prompt=1
+                num_images_per_prompt=1,
+                width=width,
+                height=height,
             )
         
         # 获取生成的图片
