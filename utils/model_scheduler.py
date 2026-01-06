@@ -35,7 +35,12 @@ def model_worker_process(task_queue, result_queue):
     try:
         while True:
             # 获取任务消息
-            msg = task_queue.get()
+            try:
+                msg = task_queue.get()
+            except Exception as e:
+                logger.error(f"获取任务消息失败: {e}")
+                time.sleep(0.1)
+                continue
             
             if msg.msg_type == 'exit':
                 logger.info("收到退出消息，模型工作进程将退出")
@@ -62,6 +67,14 @@ def model_worker_process(task_queue, result_queue):
                 except Exception as e:
                     logger.exception(f"模型工作进程加载模型失败: {e}")
                     result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+                    # 清理模型引用
+                    if model_pipeline is not None:
+                        try:
+                            del model_pipeline
+                            model_pipeline = None
+                        except:
+                            pass
+                    current_task = None
             
             elif msg.msg_type == 'run':
                 # 运行模型
@@ -87,7 +100,10 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型工作进程卸载模型: {current_task}")
                     if model_pipeline is not None:
                         if hasattr(model_pipeline, 'cleanup'):
-                            model_pipeline.cleanup()
+                            try:
+                                model_pipeline.cleanup()
+                            except Exception as cleanup_error:
+                                logger.warning(f"模型清理失败: {cleanup_error}")
                         del model_pipeline
                         model_pipeline = None
                     current_task = None
@@ -111,10 +127,20 @@ def model_worker_process(task_queue, result_queue):
     
     except Exception as e:
         logger.exception(f"模型工作进程异常退出: {e}")
+        # 尝试发送错误消息
+        try:
+            result_queue.put(ModelMessage('error', None, error=f"模型工作进程异常退出: {e}"))
+        except:
+            pass
     finally:
         # 清理资源
         if model_pipeline is not None:
-            del model_pipeline
+            try:
+                if hasattr(model_pipeline, 'cleanup'):
+                    model_pipeline.cleanup()
+                del model_pipeline
+            except:
+                pass
         
         # 清理GPU显存（仅在CUDA上下文有效的情况下）
         try:
@@ -466,27 +492,38 @@ class ModelScheduler:
             self.unload_model()
         
         # 加载新模型
-        try:
-            # 创建模型工作进程（如果尚未创建）
-            if self.model_process is None or not self.model_process.is_alive():
-                self._create_model_process()
-            
-            # 发送加载模型消息
-            msg = ModelMessage('load', task_type, params=kwargs)
-            result_msg = self._send_message(msg, timeout=600)  # 增加超时时间
-            
-            if result_msg.msg_type == 'error':
-                raise RuntimeError(f"模型加载失败: {result_msg.error}")
-            
-            self.current_task = task_type
-            self.model_params = kwargs
-            logger.info(f"模型 (任务: {self.current_task}) 加载成功")
-            return self._get_inference_func()
-            
-        except Exception as e:
-            logger.exception(f"加载模型失败: {e}")
-            self._terminate_model_process()
-            raise  # 重新抛出异常，确保调用者知道模型加载失败
+        max_retries = 2
+        for retry in range(max_retries):
+            try:
+                # 创建模型工作进程（如果尚未创建）
+                if self.model_process is None or not self.model_process.is_alive():
+                    self._create_model_process()
+                
+                # 发送加载模型消息
+                msg = ModelMessage('load', task_type, params=kwargs)
+                result_msg = self._send_message(msg, timeout=600)  # 增加超时时间
+                
+                if result_msg.msg_type == 'error':
+                    raise RuntimeError(f"模型加载失败: {result_msg.error}")
+                
+                self.current_task = task_type
+                self.model_params = kwargs
+                logger.info(f"模型 (任务: {self.current_task}) 加载成功")
+                return self._get_inference_func()
+                
+            except RuntimeError as e:
+                if "模型工作进程已意外退出" in str(e) and retry < max_retries - 1:
+                    logger.warning(f"模型工作进程意外退出，正在重启并尝试重新加载模型 (尝试 {retry + 1}/{max_retries})")
+                    self._terminate_model_process()
+                    # 清理状态
+                    self.current_task = None
+                    self.model_params = {}
+                    # 继续循环，尝试重新加载
+                    continue
+                else:
+                    logger.exception(f"加载模型失败: {e}")
+                    self._terminate_model_process()
+                    raise  # 重新抛出异常，确保调用者知道模型加载失败
     
     def _get_inference_func(self):
         """获取模型推理函数"""
