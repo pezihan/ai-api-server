@@ -43,7 +43,13 @@ class RabbitMQClient:
                     credentials=credentials,
                     socket_timeout=30,
                     heartbeat=60,
-                    blocked_connection_timeout=600
+                    blocked_connection_timeout=600,
+                    tcp_options={
+                        "TCP_KEEPALIVE": 1,
+                        "TCP_KEEPIDLE": 60,
+                        "TCP_KEEPINTVL": 10,
+                        "TCP_KEEPCNT": 3
+                    }
                 )
 
                 # 建立连接
