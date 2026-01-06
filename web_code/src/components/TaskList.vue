@@ -61,14 +61,22 @@ defineEmits<{
 const fetchTasks = async () => {
   try {
     isLoading.value = true;
+    console.log('fetchTasks called, currentPage:', currentPage.value);
+    console.log('Request URL:', `/task/list?page=${currentPage.value}&page_size=${pageSize.value}`);
     const response = await get<{total: number; page: number; page_size: number; tasks: Task[]}>(`/task/list?page=${currentPage.value}&page_size=${pageSize.value}`);
     
+    console.log('API Response:', response);
     if (response.success && response.data) {
+      console.log('Response data:', response.data);
+      console.log('Response page:', response.data.page);
       // 更新分页状态
       total.value = response.data.total;
+      console.log('Updating currentPage from response:', response.data.page);
       currentPage.value = response.data.page;
+      console.log('After update, currentPage:', currentPage.value);
       pageSize.value = response.data.page_size;
       totalPages.value = Math.ceil(total.value / pageSize.value);
+      console.log('totalPages:', totalPages.value);
       
       // 处理任务数据，添加视频标识
       tasks.value = response.data.tasks.map((task: any) => ({
@@ -250,8 +258,13 @@ const getFullPath = (path?: string) => {
 
 // 分页相关函数
 const goToPage = (page: number) => {
+  console.log('goToPage called with page:', page);
+  console.log('Current currentPage:', currentPage.value);
+  console.log('totalPages:', totalPages.value);
   if (page >= 1 && page <= totalPages.value && page !== currentPage.value) {
+    console.log('Updating currentPage to:', page);
     currentPage.value = page;
+    console.log('After update, currentPage:', currentPage.value);
     fetchTasks();
   }
 };
