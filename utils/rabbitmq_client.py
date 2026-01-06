@@ -41,12 +41,12 @@ class RabbitMQClient:
                     port=config.RABBITMQ_PORT,
                     virtual_host=config.RABBITMQ_VIRTUAL_HOST,
                     credentials=credentials,
-                    socket_timeout=30,
-                    heartbeat=60,  # 恢复默认值，避免线程冲突
+                    socket_timeout=120,
+                    heartbeat=30,  # 恢复默认值，避免线程冲突
                     blocked_connection_timeout=600,
                     tcp_options={
                         "TCP_KEEPALIVE": 1,
-                        "TCP_KEEPIDLE": 60,
+                        "TCP_KEEPIDLE": 600,
                         "TCP_KEEPINTVL": 10,
                         "TCP_KEEPCNT": 3
                     }
