@@ -91,8 +91,10 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型工作进程任务完成: {msg.task_type}")
                     result_queue.put(ModelMessage('result', msg.task_type, result=result))
                 except Exception as e:
-                    logger.error(f"模型工作进程运行任务失败: {e}\n{traceback.format_exc()}")
-                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+                    import traceback
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"模型工作进程运行任务失败: {e}\n{error_traceback}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=f"模型工作进程运行任务失败: {e}\n{error_traceback}"))
             
             elif msg.msg_type == 'unload':
                 # 卸载模型
