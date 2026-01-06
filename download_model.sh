@@ -59,10 +59,12 @@ modelscope download --model  Wan-AI/Wan2.2-I2V-A14B \
     --include "google/**/*"
 
 mkdir -p $Z_IMAGE_MODEL_DIR
-modelscope download --model  --model Tongyi-MAI/Z-Image-Turbo \
+modelscope download --model Tongyi-MAI/Z-Image-Turbo \
  --local_dir $Z_IMAGE_MODEL_DIR
 
 
 mkdir -p $QWEN_IMAGE_EDIT_MODEL_DIR
-huggingface-cli download ovedrive/Qwen-Image-Edit-2509-4bit \
+# huggingface-cli download ovedrive/Qwen-Image-Edit-2509-4bit \
+#  --local-dir $QWEN_IMAGE_EDIT_MODEL_DIR
+hf download ovedrive/Qwen-Image-Edit-2509-4bit \
  --local-dir $QWEN_IMAGE_EDIT_MODEL_DIR
