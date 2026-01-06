@@ -243,8 +243,8 @@ const getTaskOrientation = (task: Task) => {
 // 拼接域名到文件路径
 const getFullPath = (path?: string) => {
   if (!path) return '';
-  // 使用API域名
-  const domain = getApiBaseUrl();
+  // 使用API域名并移除/api前缀
+  const domain = getApiBaseUrl().replace('/api', '');
   // 确保路径以/开头
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${domain}${normalizedPath}`;
