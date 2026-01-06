@@ -37,9 +37,9 @@ const generationMessage = ref('');
 // 宽高比映射（根据生成类型）
 const aspectRatioMap = {
   image: {
-    vertical: { width: 512, height: 768 },
-    horizontal: { width: 768, height: 512 },
-    square: { width: 512, height: 512 }
+    vertical: { width: 544, height: 960 },
+    horizontal: { width: 960, height: 544 },
+    square: { width: 544, height: 544 }
   },
   video: {
     vertical: { width: 720, height: 1280 },
