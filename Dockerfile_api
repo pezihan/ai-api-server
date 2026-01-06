@@ -27,11 +27,11 @@ RUN pip install -v --no-cache-dir \
 # 清理编译依赖，保留运行时依赖
 RUN apk del gcc musl-dev libffi-dev openssl-dev python3-dev
 
-# 复制配置文件
-COPY .env.docker .env
-
 # 复制其他项目文件
 COPY . .
+
+# 复制配置文件
+COPY .env.docker .env
 
 ENV LOG_LEVEL=INFO
 
