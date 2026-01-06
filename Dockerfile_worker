@@ -24,11 +24,11 @@ COPY requirements.worker.txt ./
 COPY LightX2V ./
 
 # 安装基础依赖
-RUN pip install -r ./requirements.worker.txt --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple
-RUN pip install -v -e ./LightX2V --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install -r ./requirements.worker.txt --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install -v -e ./LightX2V --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/
 
 # 安装推理加速
-RUN pip install flash-attn --no-build-isolation --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install flash-attn --no-build-isolation --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制配置文件
 COPY .env.docker .env
