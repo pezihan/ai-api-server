@@ -37,7 +37,7 @@ RUN pip install -v -e . -i https://mirrors.aliyun.com/pypi/simple/
 WORKDIR /workspace
 # 安装推理加速
 RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
-RUN pip install -v pip install vllm -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install -v vllm -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制其他项目文件（代码文件变化不影响依赖层缓存）
 COPY . .
