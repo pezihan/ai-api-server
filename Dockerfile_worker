@@ -42,7 +42,7 @@ RUN pip install torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
 RUN pip3 install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
 # RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
 RUN apt update && apt install -y gcc g++ ninja-build \
-    && pip install -U pip setuptools wheel ninja \
+    && pip install -U pip setuptools wheel packaging ninja \
     && export CUDA_HOME=/usr/local/cuda \
     && export FORCE_CUDA=1 \
     && export TORCH_CUDA_ARCH_LIST="8.9" \
