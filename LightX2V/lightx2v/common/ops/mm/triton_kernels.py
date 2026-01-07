@@ -56,7 +56,7 @@ def fp8_quantize_triton(x):
     x_shape_orig = x.shape
     x = x.view(-1, x_shape_orig[-1])
     out_scaled = torch.empty(x_shape_orig, dtype=torch.float32, device=x.device)
-    scales = torch.empty(x.shape[0], dtype=torch.bfloat16, device=x.device)
+    scales = torch.empty(x.shape[0], dtype=torch.float32, device=x.device)
     BLOCK_SIZE = next_power_of_2(x_shape_orig[-1])
     grid = (x.shape[0],)
     FP8_MAX = 448.0
