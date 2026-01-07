@@ -20,8 +20,8 @@ const formData = reactive({
   prompt: '',
   negative_prompt: '',
   seed: Math.floor(Math.random() * 1000000),
-  width: 512,
-  height: 512,
+  width: 544,
+  height: 960,
   num_frames: 81,
   aspect_ratio: 'vertical' // vertical, horizontal, square
 });
@@ -37,14 +37,14 @@ const generationMessage = ref('');
 // 宽高比映射（根据生成类型）
 const aspectRatioMap = {
   image: {
-    vertical: { width: 512, height: 768 },
-    horizontal: { width: 768, height: 512 },
-    square: { width: 512, height: 512 }
+    vertical: { width: 544, height: 960 },
+    horizontal: { width: 960, height: 544 },
+    square: { width: 544, height: 544 }
   },
   video: {
-    vertical: { width: 480, height: 832 },
-    horizontal: { width: 832, height: 480 },
-    square: { width: 640, height: 640 }
+    vertical: { width: 544, height: 960 },
+    horizontal: { width: 960, height: 544 },
+    square: { width: 544, height: 544 }
   }
 };
 

@@ -2,25 +2,33 @@ import time
 import os
 import base64
 import pika
-from PIL import Image
-import torch
-import cv2
+import threading
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.rabbitmq_client import rabbitmq_client
 from config.config import config
-
+from PIL import Image
 class TaskWorker:
     """任务工作器，负责处理生成任务"""
 
     def __init__(self):
         self.is_running = False
         self.consumer_thread = None
+        self.task_lock = threading.Lock()  # 用于确保任务顺序执行的锁
+        self.message_queue = []  # 消息队列，用于存储待处理的消息
+        self.message_queue_lock = threading.Lock()  # 消息队列锁
+        self.worker_thread = None  # 工作线程
+        self.worker_event = threading.Event()  # 工作线程事件，用于通知有新消息
     
     def start(self):
         """启动任务工作器"""
         self.is_running = True
+        
+        # 启动工作线程
+        self.worker_thread = threading.Thread(target=self._worker_thread)
+        self.worker_thread.daemon = True
+        self.worker_thread.start()
         
         # 定义消息回调函数
         def on_message_received(ch, method, properties, body):
@@ -49,26 +57,18 @@ class TaskWorker:
                 render_start_time = time.time()
                 task_manager.update_task_render_time(task_id, 'start', render_start_time)
 
-                # 执行任务
-                self._process_task(task_id, task_info)
-
-                # 任务处理完成，立即确认消息（避免连接断开导致消息重复）
-                try:
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-                    logger.info(f"任务处理完成并确认: {task_id}")
-                except (pika.exceptions.AMQPConnectionError,
-                        pika.exceptions.AMQPChannelError,
-                        pika.exceptions.StreamLostError) as ack_error:
-                    logger.warning(f"连接断开，消息确认失败: {ack_error}")
-                    # 连接断开，消息会自动重新入队，通过去重机制避免重复处理
-                except Exception as ack_error:
-                    logger.error(f"执行ack操作失败: {ack_error}")
+                # 将消息添加到队列，由工作线程处理
+                with self.message_queue_lock:
+                    self.message_queue.append((ch, method, task_id, task_info))
+                # 通知工作线程有新消息
+                self.worker_event.set()
 
             except Exception as e:
-                logger.error(f"处理任务时发生异常: {e}")
-                # 使用rabbitmq_client的basic_nack方法，利用重连机制
+                logger.error(f"处理消息时发生异常: {e}")
+                # 在主线程中拒绝消息
                 try:
-                    rabbitmq_client.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    logger.info(f"消息拒绝成功: {task_id}")
                 except Exception as nack_error:
                     logger.error(f"执行nack操作失败: {nack_error}")
         
@@ -87,9 +87,54 @@ class TaskWorker:
                 time.sleep(5)  # 等待5秒后重试
                 self.start()  # 递归调用start方法重新启动消费
     
+    def _worker_thread(self):
+        """工作线程，负责处理消息队列中的任务"""
+        logger.info("工作线程已启动")
+        while self.is_running:
+            # 等待新消息
+            self.worker_event.wait()
+            
+            # 重置事件
+            self.worker_event.clear()
+            
+            # 处理消息队列中的所有消息
+            while self.is_running:
+                # 获取消息
+                with self.message_queue_lock:
+                    if not self.message_queue:
+                        break
+                    ch, method, task_id, task_info = self.message_queue.pop(0)
+                
+                # 使用锁确保任务顺序执行
+                with self.task_lock:
+                    try:
+                        # 执行任务
+                        self._process_task(task_id, task_info)
+
+                        # 任务处理完成，记录日志
+                        logger.info(f"任务处理完成: {task_id}")
+                        
+                        # 任务完成后确认消息
+                        try:
+                            ch.basic_ack(delivery_tag=method.delivery_tag)
+                            logger.info(f"消息确认成功: {task_id}")
+                        except Exception as ack_error:
+                            logger.error(f"执行ack操作失败: {ack_error}")
+                    except Exception as e:
+                        logger.error(f"处理任务时发生异常: {e}")
+                        
+                        # 任务失败时拒绝消息
+                        try:
+                            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                            logger.info(f"消息拒绝成功: {task_id}")
+                        except Exception as nack_error:
+                            logger.error(f"执行nack操作失败: {nack_error}")
+    
     def stop(self):
         """停止任务工作器"""
         self.is_running = False
+        # 通知工作线程停止
+        self.worker_event.set()
         logger.info("任务工作器停止")
         # 停止消息消费
         from utils.rabbitmq_client import rabbitmq_client
@@ -151,6 +196,7 @@ class TaskWorker:
         Returns:
             dict: 处理结果
         """
+        import torch
         # 创建输出目录
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-images")
         os.makedirs(output_dir, exist_ok=True)
@@ -163,15 +209,14 @@ class TaskWorker:
         seed = task_params.get('seed')
         steps = task_params.get('steps', 9)
         guidance_scale = task_params.get('guidance_scale', 5.0)
-        
+        width = task_params.get('width', 512)
+        height = task_params.get('height', 512)
+
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
         
         if task_type == 'text2img':
             # 文生图任务
-            width = task_params.get('width', 512)
-            height = task_params.get('height', 512)
-           
             # 执行生成
             output = pipe(
                 prompt=prompt,
@@ -203,7 +248,9 @@ class TaskWorker:
                 generator=generator,
                 true_cfg_scale=4.0,
                 guidance_scale=guidance_scale,
-                num_images_per_prompt=1
+                num_images_per_prompt=1,
+                width=width,
+                height=height,
             )
         
         # 获取生成的图片
@@ -233,12 +280,14 @@ class TaskWorker:
         Returns:
             dict: 处理结果
         """
+        import cv2
+
         prompt = task_params.get('prompt')
         negative_prompt = task_params.get('negative_prompt', '')
         seed = task_params.get('seed')
         steps = task_params.get('steps', 4)
-        width = task_params.get('width', 480)
-        height = task_params.get('height', 832)
+        width = task_params.get('width', 544)
+        height = task_params.get('height', 960)
         num_frames = task_params.get('num_frames', 81)
         
         # 加载wan模型

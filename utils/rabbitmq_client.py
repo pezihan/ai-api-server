@@ -41,9 +41,15 @@ class RabbitMQClient:
                     port=config.RABBITMQ_PORT,
                     virtual_host=config.RABBITMQ_VIRTUAL_HOST,
                     credentials=credentials,
-                    socket_timeout=10,
-                    heartbeat=60,
-                    blocked_connection_timeout=300
+                    socket_timeout=120,
+                    heartbeat=30,  # 恢复默认值，避免线程冲突
+                    blocked_connection_timeout=600,
+                    tcp_options={
+                        "TCP_KEEPALIVE": 1,
+                        "TCP_KEEPIDLE": 600,
+                        "TCP_KEEPINTVL": 10,
+                        "TCP_KEEPCNT": 3
+                    }
                 )
 
                 # 建立连接
@@ -51,6 +57,10 @@ class RabbitMQClient:
                 self.channel = self.connection.channel()
 
                 logger.info(f"RabbitMQ连接成功: {config.RABBITMQ_HOST}:{config.RABBITMQ_PORT} (尝试次数: {attempt + 1})")
+                
+                # 移除心跳检测线程，避免线程安全问题
+                # self._start_heartbeat_check()
+                
                 return
             except Exception as e:
                 if attempt < max_retries - 1:

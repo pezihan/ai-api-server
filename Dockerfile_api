@@ -1,0 +1,43 @@
+FROM python:3.11-alpine
+
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 更换Alpine Linux镜像源为阿里云
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
+# 安装必要的系统依赖
+RUN apk update && \
+    apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    openssl-dev \
+    python3-dev \
+    libssl3
+
+WORKDIR /workspace
+
+# 复制依赖配置文件
+COPY requirements.api.txt ./
+
+# 设置 pip 镜像源并安装依赖
+RUN pip install --no-cache-dir \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    --trusted-host mirrors.aliyun.com \
+    -r ./requirements.api.txt
+
+# 清理编译依赖，保留运行时依赖
+RUN apk del gcc musl-dev libffi-dev openssl-dev python3-dev
+
+# 复制其他项目文件
+COPY . .
+
+# 复制配置文件
+COPY .env.docker .env
+
+ENV LOG_LEVEL=INFO
+
+EXPOSE 5001
+
+CMD ["python", "api.py"]

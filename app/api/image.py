@@ -1,10 +1,9 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.logger import logger
 from middlewares.auth import auth_required
-from PIL import Image
+
 # 创建命名空间
 image_ns = Namespace('image', description='图片生成接口')
 
@@ -13,9 +12,9 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=50, description='推理步数'),
-    'width': fields.Integer(required=False, default=512, description='图片宽度'),
-    'height': fields.Integer(required=False, default=512, description='图片高度'),
+    'steps': fields.Integer(required=False, default=30, description='推理步数'),
+    'width': fields.Integer(required=False, default=544, description='图片宽度'),
+    'height': fields.Integer(required=False, default=544, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子')
 })
 
@@ -24,8 +23,8 @@ img2img_model = image_ns.model('Img2ImgRequest', {
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
     'steps': fields.Integer(required=False, default=20, description='推理步数'),
-    'width': fields.Integer(required=False, default=512, description='图片宽度'),
-    'height': fields.Integer(required=False, default=512, description='图片高度'),
+    'width': fields.Integer(required=False, default=544, description='图片宽度'),
+    'height': fields.Integer(required=False, default=544, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子'),
     'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
 })
@@ -42,9 +41,9 @@ class Text2Img(Resource):
             prompt = data.get('prompt')
             negative_prompt = data.get('negative_prompt', '')
             seed = data.get('seed')
-            steps = data.get('steps', 50)
-            width = data.get('width', 512)
-            height = data.get('height', 512)
+            steps = data.get('steps', 30)
+            width = data.get('width', 544)
+            height = data.get('height', 544)
             guidance_scale = data.get('guidance_scale', 5.0)
             
             # 验证参数
@@ -88,8 +87,8 @@ class Img2Img(Resource):
             image_path = data.get('image_path')
             seed = data.get('seed')
             steps = data.get('steps', 20)
-            width = data.get('width', 512)
-            height = data.get('height', 512)
+            width = data.get('width', 544)
+            height = data.get('height', 544)
             guidance_scale = data.get('guidance_scale', 5.0)
             
             # 验证参数

@@ -1,8 +1,8 @@
 import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -15,12 +15,15 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  build: {
+    outDir: path.resolve(__dirname, '../dist_web')
+  },
   server: {
     proxy: {
       '/api': {
         target: 'https://59a7efd42ee84d2db8811534a003270b--5001.ap-shanghai2.cloudstudio.club',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path  // 保持 api 前缀
       }
     }
   }

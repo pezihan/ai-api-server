@@ -1,0 +1,73 @@
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 设置阿里云镜像源
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+
+# 安装系统依赖（这一层变化极少，优先缓存）
+RUN apt-get update -y --fix-missing && \
+    apt-get install -y --no-install-recommends \
+        python3.11 python3.11-dev python3.11-distutils \
+        git build-essential curl wget git-lfs sox libsox-dev libgl1 \
+        libjpeg-dev zlib1g-dev libpng-dev libtiff-dev libopenjp2-7-dev \
+        libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+        libxvidcore-dev libx264-dev libatlas-base-dev gfortran && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    git lfs install
+
+WORKDIR /workspace
+
+# 先复制依赖配置文件（仅当这些文件变化时，才会重新执行后续依赖安装）
+COPY requirements.worker.txt ./
+# 安装基础依赖
+RUN pip install -v -r ./requirements.worker.txt -i https://mirrors.aliyun.com/pypi/simple/
+
+COPY ./LightX2V ./LightX2V
+# 安装LightX2V
+WORKDIR /workspace/LightX2V
+RUN pip install -v -e . -i https://mirrors.aliyun.com/pypi/simple/
+
+WORKDIR /workspace
+# 安装推理加速
+RUN pip install torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
+  --index-url https://download.pytorch.org/whl/cu121 \
+  --extra-index-url https://mirrors.aliyun.com/pypi/simple/
+RUN pip install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
+# RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
+RUN apt update && apt install -y gcc g++ ninja-build \
+    && pip install -U pip setuptools wheel packaging ninja \
+    && export CUDA_HOME=/usr/local/cuda \
+    && export FORCE_CUDA=1 \
+    && export TORCH_CUDA_ARCH_LIST="8.9" \
+    && export FLASH_ATTN_FORCE_CUDA_ARCH="89" \
+    && pip install -v flash-attn \
+       --no-build-isolation \
+       --root-user-action=ignore \
+       --no-deps \
+       -i https://mirrors.aliyun.com/pypi/simple/ \
+       --extra-index-url https://download.pytorch.org/whl/cu121
+
+# 复制其他项目文件（代码文件变化不影响依赖层缓存）
+COPY . .
+
+# 复制配置文件
+COPY .env.docker .env
+
+ENV LOG_LEVEL=INFO
+
+# ========== 核心：添加环境变量 ==========
+# CUDA内存分配优化
+ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# 启用CUDA Graph模式提升推理性能
+ENV ENABLE_GRAPH_MODE=true
+# 使用BF16精度推理，减少显存占用
+ENV DTYPE=BF16
+
+CMD ["python", "start_worker.py"]
