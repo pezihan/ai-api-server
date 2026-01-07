@@ -20,9 +20,9 @@
         250
     ],
     "dit_quantized": true,
-    "dit_quant_scheme": "fp8-q8f",
+    "dit_quant_scheme": "fp8",
     "t5_quantized": true,
-    "t5_quant_scheme": "fp8-q8f",
+    "t5_quant_scheme": "fp8",
     "clean_cuda_cache": true,
     "rotary_chunk": true,
     "rotary_chunk_size": 200,
