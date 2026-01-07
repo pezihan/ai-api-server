@@ -220,7 +220,7 @@ class TaskWorker:
             # 执行生成
             output = pipe(
                 prompt=prompt,
-                # negative_prompt=negative_prompt, // 加了反向提示词，画面9步快速推理会有问题
+                negative_prompt=negative_prompt,
                 width=width,
                 height=height,
                 num_inference_steps=steps,
