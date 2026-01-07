@@ -36,7 +36,10 @@ RUN pip install -v -e . -i https://mirrors.aliyun.com/pypi/simple/
 
 WORKDIR /workspace
 # 安装推理加速
-RUN pip install -v vllm -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
+  --index-url https://download.pytorch.org/whl/cu121 \
+  --extra-index-url https://mirrors.aliyun.com/pypi/simple/
+RUN pip3 install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
 RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制其他项目文件（代码文件变化不影响依赖层缓存）
