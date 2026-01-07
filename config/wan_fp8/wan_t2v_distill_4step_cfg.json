@@ -1,4 +1,5 @@
 {
+    "use_prompt_enhancer": true,
     "infer_steps": 4,
     "target_video_length": 81,
     "text_len": 512,
