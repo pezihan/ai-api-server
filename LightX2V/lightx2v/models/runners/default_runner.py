@@ -453,8 +453,14 @@ class DefaultRunner(BaseRunner):
             if not dist.is_initialized() or dist.get_rank() == 0:
                 logger.info(f"🎬 Start to save video 🎬")
 
-                save_to_video(self.gen_video_final, self.input_info.save_result_path, fps=fps, method="ffmpeg")
-                logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} ✅")
+                try:
+                    save_to_video(self.gen_video_final, self.input_info.save_result_path, fps=fps, method="ffmpeg")
+                    logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} ✅")
+                except Exception as e:
+                    logger.warning(f"⚠️  FFmpeg failed to save video: {e}")
+                    logger.info("🔄 Falling back to imageio method...")
+                    save_to_video(self.gen_video_final, self.input_info.save_result_path, fps=fps, method="imageio")
+                    logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} using imageio ✅")
             return {"video": None}
 
     @ProfilingContext4DebugL1("RUN pipeline", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_worker_request_duration, metrics_labels=["DefaultRunner"])
