@@ -43,6 +43,18 @@ pip install -v -e .
 ### 安装推理加速
 ```
 pip install flash-attn --no-build-isolation
+
+# 可以从以下链接下载预编译的whl文件
+https://github.com/Dao-AILab/flash-attention/releases/tag/v2.8.3
+
+# python3.12 + torch2.8.0 + cuda12.1 通过测试
+flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+```
+
+# 安装其他依赖
+如果使用fb8模型需要安装
+```bash
+pip install -r requirements_fb8.txt
 ```
 
 ### 4. 配置环境变量
