@@ -46,4 +46,12 @@ COPY .env.docker .env
 
 ENV LOG_LEVEL=INFO
 
+# ========== 核心：添加环境变量 ==========
+# CUDA内存分配优化
+ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# 启用CUDA Graph模式提升推理性能
+ENV ENABLE_GRAPH_MODE=true
+# 使用BF16精度推理，减少显存占用
+ENV DTYPE=BF16
+
 CMD ["python", "start_worker.py"]
