@@ -19,7 +19,5 @@
         500,
         250
     ],
-    "clean_cuda_cache": true,
-    "rotary_chunk": true,
-    "rotary_chunk_size": 200
+    "clean_cuda_cache": true
 }
