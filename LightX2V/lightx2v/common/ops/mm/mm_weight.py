@@ -630,6 +630,13 @@ class MMWeightQuantTemplate(MMWeightTemplate):
         input_tensor_quant, input_tensor_scale = ops.scaled_fp8_quant(x, None, scale_ub=None, use_per_token_if_dynamic=True)
         return input_tensor_quant, input_tensor_scale
 
+    def act_quant_fp8_perchannel_sym_sgl(self, x):
+        m, k = x.shape
+        input_tensor_quant = torch.empty((m, k), dtype=torch.float8_e4m3fn, device="cuda", requires_grad=False)
+        input_tensor_scale = torch.empty((m, 1), dtype=torch.float32, device="cuda", requires_grad=False)
+        sgl_kernel.sgl_per_token_quant_fp8(x, input_tensor_quant, input_tensor_scale)
+        return input_tensor_quant, input_tensor_scale
+
     def act_quant_int8_perchannel_sym_vllm(self, x):
         input_tensor_quant, input_tensor_scale, _ = ops.scaled_int8_quant(x, scale=None, azp=None, symmetric=True)
         return input_tensor_quant, input_tensor_scale
@@ -653,21 +660,20 @@ class MMWeightQuantTemplate(MMWeightTemplate):
         x_amax = x_view.abs().float().amax(dim=2).view(m, -1).clamp(1e-4)
         return (x_view * (448.0 / x_amax.unsqueeze(2))).to(torch.float8_e4m3fn).view(m, n), (x_amax / 448.0).view(m, -1)
 
-    # =========================
-    # SGL-dependent act quant kernels
-    # =========================
-    if sgl_kernel is not None:
-        def act_quant_fp8_perchannel_sym_sgl(self, x):
-            input_tensor_quant = torch.empty_like(x, dtype=torch.float8_e4m3fn)
-            input_tensor_scale = torch.empty(x.shape[0], dtype=torch.float32, device=x.device)
-            sgl_kernel.sgl_per_token_quant_fp8(x, input_tensor_quant, input_tensor_scale)
-            return input_tensor_quant, input_tensor_scale
-
-        def act_quant_fp8_perchannelgroup128_sym_sgl(self, x):
-            input_tensor_quant = torch.empty_like(x, dtype=torch.float8_e4m3fn)
-            input_tensor_scale = torch.empty(x.shape[0], x.shape[1] // 128, dtype=torch.float32, device=x.device)
-            sgl_kernel.sgl_per_channel_group_quant_fp8(x, input_tensor_quant, input_tensor_scale, 128)
-            return input_tensor_quant, input_tensor_scale
+    def act_quant_fp8_perchannelgroup128_sym_sgl(self, x):
+        m, k = x.shape
+        input_tensor_quant = torch.empty((m, k), dtype=torch.float8_e4m3fn, device="cuda", requires_grad=False)
+        input_tensor_scale = torch.empty((m, k // 128), dtype=torch.float32, device="cuda", requires_grad=False)
+        sgl_kernel.sgl_per_token_group_quant_fp8(
+            x,
+            input_tensor_quant,
+            input_tensor_scale,
+            group_size=128,
+            eps=1e-10,
+            fp8_min=-448.0,
+            fp8_max=448.0,
+        )
+        return input_tensor_quant, input_tensor_scale
 
     def state_dict(self, destination=None):
         if destination is None:
@@ -1707,154 +1713,154 @@ class MMWeightWint8channelAint8channeldynamicTriton(MMWeightQuantTemplate):
         return output_tensor.squeeze(0) if len(output_tensor.shape) == 3 else output_tensor
 
 
-if sgl_kernel is not None:
-    @MM_WEIGHT_REGISTER("fp8-b128-deepgemm")
-    class MMWeightWfp8block128Afp8channelgroup128dynamicDeepgemmActSgl(MMWeightQuantTemplate):
-        """
-        Name: W-fp8-block128-sym-A-fp8-channel-group128-sym-dynamic-Deepgemm-ActSgl
+@MM_WEIGHT_REGISTER("fp8-b128-deepgemm")
+class MMWeightWfp8block128Afp8channelgroup128dynamicDeepgemmActSgl(MMWeightQuantTemplate):
+    """
+    Name: W-fp8-block128-sym-A-fp8-channel-group128-sym-dynamic-Deepgemm-ActSgl
 
-        Quant MM:
-            Weight: fp8 perblock 128x128 sym
-            Act: fp8 pertoken-pergroup group=128 dynamic sym
-            Kernel: quant-mm using Deepgemm, act dynamic quant using Sgl-kernel
-        """
+    Quant MM:
+        Weight: fp8 perblock 128x128 sym
+        Act: fp8 pertoken-pergroup group=128 dynamic sym
+        Kernel: quant-mm using Deepgemm, act dynamic quant using Sgl-kernel
+    """
 
-        def __init__(
-            self,
+    def __init__(
+        self,
+        weight_name,
+        bias_name,
+        create_cuda_buffer=False,
+        create_cpu_buffer=False,
+        lazy_load=False,
+        lazy_load_file=None,
+        is_post_adapter=False,
+    ):
+        super().__init__(
             weight_name,
             bias_name,
-            create_cuda_buffer=False,
-            create_cpu_buffer=False,
-            lazy_load=False,
-            lazy_load_file=None,
-            is_post_adapter=False,
-        ):
-            super().__init__(
-                weight_name,
-                bias_name,
-                create_cuda_buffer,
-                create_cpu_buffer,
-                lazy_load,
-                lazy_load_file,
-                is_post_adapter,
-            )
-            self.load_func = self.load_fp8_perblock128_sym
-            self.weight_need_transpose = False
-            self.act_quant_func = self.act_quant_fp8_perchannelgroup128_sym_sgl
+            create_cuda_buffer,
+            create_cpu_buffer,
+            lazy_load,
+            lazy_load_file,
+            is_post_adapter,
+        )
+        self.load_func = self.load_fp8_perblock128_sym
+        self.weight_need_transpose = False
+        self.act_quant_func = self.act_quant_fp8_perchannelgroup128_sym_sgl
 
-        def apply(self, input_tensor):
-            shape = (input_tensor.shape[0], self.weight.shape[0])
-            dtype = input_tensor.dtype
-            device = input_tensor.device
-            output_tensor = torch.empty(shape, dtype=dtype, device=device, requires_grad=False)
+    def apply(self, input_tensor):
+        shape = (input_tensor.shape[0], self.weight.shape[0])
+        dtype = input_tensor.dtype
+        device = input_tensor.device
+        output_tensor = torch.empty(shape, dtype=dtype, device=device, requires_grad=False)
 
-            input_tensor_quant, input_tensor_scale = self.act_quant_func(input_tensor)
-            deep_gemm.gemm_fp8_fp8_bf16_nt(
-                (input_tensor_quant, input_tensor_scale),
-                (self.weight, self.weight_scale),
-                output_tensor,
-            )
-            if hasattr(self, "bias") and self.bias is not None:
-                output_tensor.add_(self.bias)
-            return output_tensor
+        input_tensor_quant, input_tensor_scale = self.act_quant_func(input_tensor)
+        deep_gemm.gemm_fp8_fp8_bf16_nt(
+            (input_tensor_quant, input_tensor_scale),
+            (self.weight, self.weight_scale),
+            output_tensor,
+        )
+        if hasattr(self, "bias") and self.bias is not None:
+            output_tensor.add_(self.bias)
+        return output_tensor
 
-    @MM_WEIGHT_REGISTER("fp8-sgl")
-    class MMWeightWfp8channelAfp8channeldynamicSgl(MMWeightQuantTemplate):
-        """
-        Name: W-fp8-channel-sym-A-fp8-channel-sym-dynamic-Sgl
 
-        Quant MM:
-            Weight: fp8 perchannel sym
-            Act: fp8 perchannel dynamic sym
-            Kernel: Sgl-kernel
-        """
+@MM_WEIGHT_REGISTER("fp8-sgl")
+class MMWeightWfp8channelAfp8channeldynamicSgl(MMWeightQuantTemplate):
+    """
+    Name: W-fp8-channel-sym-A-fp8-channel-sym-dynamic-Sgl
 
-        def __init__(
-            self,
+    Quant MM:
+        Weight: fp8 perchannel sym
+        Act: fp8 perchannel dynamic sym
+        Kernel: Sgl-kernel
+    """
+
+    def __init__(
+        self,
+        weight_name,
+        bias_name,
+        create_cuda_buffer=False,
+        create_cpu_buffer=False,
+        lazy_load=False,
+        lazy_load_file=None,
+        is_post_adapter=False,
+    ):
+        super().__init__(
             weight_name,
             bias_name,
-            create_cuda_buffer=False,
-            create_cpu_buffer=False,
-            lazy_load=False,
-            lazy_load_file=None,
-            is_post_adapter=False,
-        ):
-            super().__init__(
-                weight_name,
-                bias_name,
-                create_cuda_buffer,
-                create_cpu_buffer,
-                lazy_load,
-                lazy_load_file,
-                is_post_adapter,
-            )
-            self.load_func = self.load_fp8_perchannel_sym
-            self.weight_need_transpose = True
-            self.act_quant_func = self.act_quant_fp8_perchannel_sym_sgl
+            create_cuda_buffer,
+            create_cpu_buffer,
+            lazy_load,
+            lazy_load_file,
+            is_post_adapter,
+        )
+        self.load_func = self.load_fp8_perchannel_sym
+        self.weight_need_transpose = True
+        self.act_quant_func = self.act_quant_fp8_perchannel_sym_sgl
 
-        def apply(self, input_tensor):
-            input_tensor_quant, input_tensor_scale = self.act_quant_func(input_tensor)
-            output_tensor = sgl_kernel.fp8_scaled_mm(
-                input_tensor_quant,
-                self.weight,
-                input_tensor_scale,
-                self.weight_scale,
-                self.infer_dtype,
-                self.bias if self.bias is not None else None,
-            )
-            return output_tensor
+    def apply(self, input_tensor):
+        input_tensor_quant, input_tensor_scale = self.act_quant_func(input_tensor)
+        output_tensor = sgl_kernel.fp8_scaled_mm(
+            input_tensor_quant,
+            self.weight,
+            input_tensor_scale,
+            self.weight_scale,
+            self.infer_dtype,
+            self.bias if self.bias is not None else None,
+        )
+        return output_tensor
 
 
-    @MM_WEIGHT_REGISTER("int8-sgl")
-    class MMWeightWint8channelAint8channeldynamicSglActVllm(MMWeightQuantTemplate):
-        """
-        Name: W-int8-channel-sym-A-int8-channel-sym-dynamic-Sgl-ActVllm
+@MM_WEIGHT_REGISTER("int8-sgl")
+class MMWeightWint8channelAint8channeldynamicSglActVllm(MMWeightQuantTemplate):
+    """
+    Name: W-int8-channel-sym-A-int8-channel-sym-dynamic-Sgl-ActVllm
 
-        Quant MM:
-            Weight: int8 perchannel sym
-            Act: int8 perchannel dynamic sym
-            Kernel: quant-mm using Sgl-kernel, act dynamic quant using vllm
-        """
+    Quant MM:
+        Weight: int8 perchannel sym
+        Act: int8 perchannel dynamic sym
+        Kernel: quant-mm using Sgl-kernel, act dynamic quant using vllm
+    """
 
-        def __init__(
-            self,
+    def __init__(
+        self,
+        weight_name,
+        bias_name,
+        create_cuda_buffer=False,
+        create_cpu_buffer=False,
+        lazy_load=False,
+        lazy_load_file=None,
+        is_post_adapter=False,
+    ):
+        super().__init__(
             weight_name,
             bias_name,
-            create_cuda_buffer=False,
-            create_cpu_buffer=False,
-            lazy_load=False,
-            lazy_load_file=None,
-            is_post_adapter=False,
-        ):
-            super().__init__(
-                weight_name,
-                bias_name,
-                create_cuda_buffer,
-                create_cpu_buffer,
-                lazy_load,
-                lazy_load_file,
-                is_post_adapter,
-            )
-            self.load_func = self.load_int8_perchannel_sym
-            self.weight_need_transpose = True
-            self.act_quant_func = self.act_quant_int8_perchannel_sym_vllm
+            create_cuda_buffer,
+            create_cpu_buffer,
+            lazy_load,
+            lazy_load_file,
+            is_post_adapter,
+        )
+        self.load_func = self.load_int8_perchannel_sym
+        self.weight_need_transpose = True
+        self.act_quant_func = self.act_quant_int8_perchannel_sym_vllm
 
-        def apply(self, input_tensor):
-            shape = (input_tensor.shape[0], self.weight.shape[1])
-            dtype = input_tensor.dtype
-            device = input_tensor.device
-            output_tensor = torch.empty(shape, dtype=dtype, device=device, requires_grad=False)
+    def apply(self, input_tensor):
+        shape = (input_tensor.shape[0], self.weight.shape[1])
+        dtype = input_tensor.dtype
+        device = input_tensor.device
+        output_tensor = torch.empty(shape, dtype=dtype, device=device, requires_grad=False)
 
-            input_tensor_quant, input_tensor_scale = self.act_quant_func(input_tensor)
-            output_tensor = sgl_kernel.int8_scaled_mm(
-                input_tensor_quant,
-                self.weight,
-                input_tensor_scale,
-                self.weight_scale,
-                self.infer_dtype,
-                self.bias if self.bias is not None else None,
-            )
-            return output_tensor
+        input_tensor_quant, input_tensor_scale = self.act_quant_func(input_tensor)
+        output_tensor = sgl_kernel.int8_scaled_mm(
+            input_tensor_quant,
+            self.weight,
+            input_tensor_scale,
+            self.weight_scale,
+            self.infer_dtype,
+            self.bias if self.bias is not None else None,
+        )
+        return output_tensor
 
 
 @MM_WEIGHT_REGISTER("fp8-torchao")
