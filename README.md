@@ -96,10 +96,28 @@ docker-compose up -d
 ### 6. 启动服务
 
 #### 6.1 启动API接口服务
-
+复制`supervisor.worker.conf`、`supervisor.api.conf`到`/etc/supervisor/conf.d/`目录下
 ```bash
-python run.py
+# 重新加载配置（新增/修改配置后必须执行）
+sudo supervisorctl reload
+
+# 启动你的进程（替换为配置中的program名，比如my_app）
+sudo supervisorctl start ai-server-worker
+
+# 查看所有进程状态
+sudo supervisorctl status
+
+# 重启进程
+sudo supervisorctl restart ai-server-worker
+
+# 停止进程
+sudo supervisorctl stop ai-server-worker
+
+# 实时查看日志（排错用）
+sudo supervisorctl tail -f ai-server-worker  # 查看标准输出
+sudo supervisorctl tail -f ai-server-worker stderr  # 查看错误日志
 ```
+
 
 API服务将在`http://localhost:5001`启动，文档可通过`http://localhost:5001/api/docs`访问。
 
