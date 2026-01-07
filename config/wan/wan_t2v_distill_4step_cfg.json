@@ -21,6 +21,5 @@
     ],
     "clean_cuda_cache": true,
     "rotary_chunk": true,
-    "rotary_chunk_size": 200,
-    "use_tiling_vae": true
+    "rotary_chunk_size": 200
 }
