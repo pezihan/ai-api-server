@@ -39,7 +39,7 @@ WORKDIR /workspace
 RUN pip install torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
   --index-url https://download.pytorch.org/whl/cu121 \
   --extra-index-url https://mirrors.aliyun.com/pypi/simple/
-RUN pip3 install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
 # RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
 RUN apt update && apt install -y gcc g++ ninja-build \
     && pip install -U pip setuptools wheel packaging ninja \
