@@ -46,7 +46,6 @@ RUN apt update && apt install -y gcc g++ ninja-build \
     && export CUDA_HOME=/usr/local/cuda \
     && export FORCE_CUDA=1 \
     && export TORCH_CUDA_ARCH_LIST="8.9" \
-    && export MAX_JOBS=2 \
     && export FLASH_ATTN_FORCE_CUDA_ARCH="89" \
     && pip install -v flash-attn==2.5.8 \
        --no-build-isolation \
