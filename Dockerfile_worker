@@ -47,9 +47,8 @@ RUN apt update && apt install -y gcc g++ ninja-build \
     && export FORCE_CUDA=1 \
     && export TORCH_CUDA_ARCH_LIST="8.9" \
     && export FLASH_ATTN_FORCE_CUDA_ARCH="89" \
-    && pip install -v flash-attn==2.5.8 \
+    && pip install -v flash-attn \
        --no-build-isolation \
-       --no-cache-dir \
        --root-user-action=ignore \
        --no-deps \
        -i https://mirrors.aliyun.com/pypi/simple/ \
