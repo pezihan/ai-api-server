@@ -46,6 +46,8 @@ class Text2Img(Resource):
             height = data.get('height', 544)
             guidance_scale = data.get('guidance_scale', 7.5)
             
+            negative_prompt = negative_prompt.strip() if (negative_prompt and negative_prompt.strip()) else '模糊, 低分辨率, 像素化, 马赛克, 透视错误, 背景扭曲, 漂浮物体, 物体融合, 重复物体, 背景杂乱, 背景元素无逻辑, 过曝, 欠曝, 光线不自然, 阴影不一致, 物体发光, 色彩溢出, 色彩失真, 诡异配色, 边缘模糊, 锯齿边缘, 文字叠加, 水印, 签名, AI伪影, 画面错乱, 噪点, 颗粒感, 物体畸形, 材质不真实, 构图混乱, 元素杂乱,模糊, 低分辨率, 像素化, 马赛克, 透视错误, 背景扭曲, 漂浮物体, 物体融合, 重复物体, 背景杂乱, 背景元素无逻辑, 过曝, 欠曝, 光线不自然, 阴影不一致, 物体发光, 色彩溢出, 色彩失真, 诡异配色, 边缘模糊, 锯齿边缘, 文字叠加, 水印, 签名, AI伪影, 画面错乱, 噪点, 颗粒感, 物体畸形, 材质不真实, 构图混乱, 元素杂乱'
+            
             # 验证参数
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200
@@ -90,6 +92,8 @@ class Img2Img(Resource):
             width = data.get('width', 544)
             height = data.get('height', 544)
             guidance_scale = data.get('guidance_scale', 7.5)
+
+            negative_prompt = negative_prompt.strip() if (negative_prompt and negative_prompt.strip()) else '模糊, 低分辨率, 像素化, 马赛克, 透视错误, 背景扭曲, 漂浮物体, 物体融合, 重复物体, 背景杂乱, 背景元素无逻辑, 过曝, 欠曝, 光线不自然, 阴影不一致, 物体发光, 色彩溢出, 色彩失真, 诡异配色, 边缘模糊, 锯齿边缘, 文字叠加, 水印, 签名, AI伪影, 画面错乱, 噪点, 颗粒感, 物体畸形, 材质不真实, 构图混乱, 元素杂乱'
             
             # 验证参数
             if not prompt:
