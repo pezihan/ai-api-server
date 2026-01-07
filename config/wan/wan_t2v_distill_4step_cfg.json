@@ -18,6 +18,5 @@
         750,
         500,
         250
-    ],
-    "clean_cuda_cache": true
+    ]
 }
