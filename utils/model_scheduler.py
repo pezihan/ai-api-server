@@ -175,7 +175,7 @@ def _load_zimage_t2i_model_worker(params):
         model_path,
         torch_dtype=torch_dtype
     )
-    pipe.transformer.set_attention_backend("flash")
+    # pipe.transformer.set_attention_backend("flash")
     
     # 启用CPU卸载（节省显存）
     if cpu_offload:
