@@ -124,20 +124,20 @@ sudo apt install -y supervisor
 sudo supervisorctl reload
 
 # 启动你的进程（替换为配置中的program名，比如my_app）
-sudo supervisorctl start ai-server-worker
+sudo supervisorctl start ai_server_worker
 
 # 查看所有进程状态
 sudo supervisorctl status
 
 # 重启进程
-sudo supervisorctl restart ai-server-worker
+sudo supervisorctl restart ai_server_worker
 
 # 停止进程
-sudo supervisorctl stop ai-server-worker
+sudo supervisorctl stop ai_server_worker
 
 # 实时查看日志（排错用）
-sudo supervisorctl tail -f ai-server-worker  # 查看标准输出
-sudo supervisorctl tail -f ai-server-worker stderr  # 查看错误日志
+sudo supervisorctl tail -f ai_server_worker  # 查看标准输出
+sudo supervisorctl tail -f ai_server_worker stderr  # 查看错误日志
 ```
 
 
