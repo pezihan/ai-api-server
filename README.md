@@ -55,6 +55,13 @@ flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 如果使用fb8模型需要安装
 ```bash
 pip install -r requirements_fb8.txt
+
+git clone https://github.com/KONAKONA666/q8_kernels
+cd q8_kernels 
+git submodule init
+git submodule update
+python setup.py install
+pip install .
 ```
 
 ### 4. 配置环境变量
