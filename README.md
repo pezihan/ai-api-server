@@ -119,6 +119,7 @@ docker-compose up -d
 #### 6.1 启动API接口服务
 复制`supervisor.worker.conf`、`supervisor.api.conf`到`/etc/supervisor/conf.d/`目录下
 ```bash
+sudo apt install -y supervisor
 # 重新加载配置（新增/修改配置后必须执行）
 sudo supervisorctl reload
 
