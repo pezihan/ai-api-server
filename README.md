@@ -61,7 +61,7 @@ cd q8_kernels
 git submodule init
 git submodule update
 python setup.py install
-pip install .
+pip install --no-build-isolation .
 ```
 
 ### 4. 配置环境变量
