@@ -56,6 +56,8 @@ flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 ```bash
 pip install -r requirements_fb8.txt
 
+# 兼容3090(sm_86)、4090(sm_89)、5090(sm_90a) 如果其他显卡需要修改，算力配置
+export TORCH_CUDA_ARCH_LIST="8.6;8.9;9.0a"
 git clone https://github.com/KONAKONA666/q8_kernels
 cd q8_kernels 
 git submodule init
