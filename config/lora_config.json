@@ -30,16 +30,16 @@
   "qwen_image_edit": [
     {
       "id": 1,
-      "name": "image_enhance",
-      "path": "image_enhance.safetensors",
+      "name": "flymy-ai/qwen-image-edit-2509-inscene-lora",
+      "path": "pytorch_lora_weights.safetensors",
       "strength": null
     }
   ],
   "z_image": [
     {
       "id": 1,
-      "name": "realistic_style",
-      "path": "realistic_style.safetensors",
+      "name": "AI-ModelScope/pixel_art_style_lora_z_image_turbo",
+      "path": "pixel_art_style_z_image_turbo.safetensors",
       "strength": null
     }
   ]
