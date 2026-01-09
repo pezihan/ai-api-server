@@ -7,7 +7,8 @@ pillow==10.1.0
 # diffusers==0.36.0.dev0
 git+https://github.com/huggingface/diffusers
 transformers==4.57.3
-accelerate==0.26.1
+# accelerate==0.26.1
+accelerate==0.32.0
 modelscope==1.33.0
 bitsandbytes==0.49.0
 protobuf==4.25.3
