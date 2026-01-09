@@ -55,11 +55,11 @@ modelscope download --model  Wan-AI/Wan2.2-I2V-A14B \
     --include "Wan2.1_VAE.pth"
 
 modelscope download --model lightx2v/Encoders \
-    --local_dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_22_DISTILL_MODELS_DIR \
     --include "models_t5_umt5-xxl-enc-fp8.pth"
 
 modelscope download --model lightx2v/Encoders \
-    --local_dir $WAN_21_DISTILL_MODELS_DIR \
+    --local_dir $WAN_22_DISTILL_MODELS_DIR \
     --include "google/**/*"
 
 

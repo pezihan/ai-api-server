@@ -36,23 +36,8 @@ RUN pip install -v -e . -i https://mirrors.aliyun.com/pypi/simple/
 
 WORKDIR /workspace
 # 安装推理加速
-RUN pip install torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
-  --index-url https://download.pytorch.org/whl/cu121 \
-  --extra-index-url https://mirrors.aliyun.com/pypi/simple/
 RUN pip install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
-# RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
-RUN apt update && apt install -y gcc g++ ninja-build \
-    && pip install -U pip setuptools wheel packaging ninja \
-    && export CUDA_HOME=/usr/local/cuda \
-    && export FORCE_CUDA=1 \
-    && export TORCH_CUDA_ARCH_LIST="8.9" \
-    && export FLASH_ATTN_FORCE_CUDA_ARCH="89" \
-    && pip install -v flash-attn \
-       --no-build-isolation \
-       --root-user-action=ignore \
-       --no-deps \
-       -i https://mirrors.aliyun.com/pypi/simple/ \
-       --extra-index-url https://download.pytorch.org/whl/cu121
+RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制其他项目文件（代码文件变化不影响依赖层缓存）
 COPY . .

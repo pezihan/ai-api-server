@@ -7,7 +7,6 @@
     "self_attn_1_type": "flash_attn2",
     "cross_attn_1_type": "flash_attn2",
     "cross_attn_2_type": "flash_attn2",
-    "rope_type": "torch",
     "sample_guide_scale": [
         3.5,
         3.5
@@ -20,6 +19,7 @@
     "vae_cpu_offload": false,
     "use_image_encoder": false,
     "boundary_step_index": 2,
+    "boundary": 0.900,
     "denoising_step_list": [
         1000,
         750,
@@ -27,7 +27,7 @@
         250
     ],
     "dit_quantized": true,
-    "dit_quant_scheme": "fp8-sgl",
+    "dit_quant_scheme": "fp8-q8f",
     "t5_quantized": true,
-    "t5_quant_scheme": "fp8-sgl"
+    "t5_quant_scheme": "fp8-q8f"
 }

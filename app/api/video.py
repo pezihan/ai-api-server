@@ -45,6 +45,8 @@ class Text2Video(Resource):
             width = data.get('width', 544)
             height = data.get('height', 960)
             num_frames = data.get('num_frames', 81)
+
+            negative_prompt = negative_prompt.strip() if (negative_prompt and negative_prompt.strip()) else '模糊, 低分辨率, 像素化, 马赛克, 透视错误, 背景扭曲, 漂浮物体, 物体融合, 重复物体, 背景杂乱, 过曝, 欠曝, 光线不自然, 阴影不一致, 色彩溢出, 色彩失真, 诡异配色, 边缘模糊, 锯齿边缘, 文字叠加, 水印, 签名, AI伪影, 画面错乱, 噪点, 颗粒感, 物体畸形, 材质不真实, 构图混乱, 元素杂乱, 人物变形, 面部扭曲, 五官错位, 多手指, 少手指, 手指扭曲, 头发杂乱, 服装穿模, 身体比例失调, 动作僵硬, 表情诡异, 皮肤质感差, 细节丢失, 动作卡顿不连贯, 肢体摆动僵硬, 帧间人物位置瞬移, 人物肢体虚影重影, 关节弯折角度反常'
             
             # 验证参数
             if not prompt:
@@ -91,6 +93,7 @@ class Img2Video(Resource):
             height = data.get('height', 960)
             num_frames = data.get('num_frames', 81)
             
+            negative_prompt = negative_prompt.strip() if (negative_prompt and negative_prompt.strip()) else '模糊, 低分辨率, 像素化, 马赛克, 透视错误, 背景扭曲, 漂浮物体, 物体融合, 重复物体, 背景杂乱, 过曝, 欠曝, 光线不自然, 阴影不一致, 色彩溢出, 色彩失真, 诡异配色, 边缘模糊, 锯齿边缘, 文字叠加, 水印, 签名, AI伪影, 画面错乱, 噪点, 颗粒感, 物体畸形, 材质不真实, 构图混乱, 元素杂乱, 人物变形, 面部扭曲, 五官错位, 多手指, 少手指, 手指扭曲, 头发杂乱, 服装穿模, 身体比例失调, 动作僵硬, 表情诡异, 皮肤质感差, 细节丢失, 动作卡顿不连贯, 肢体摆动僵硬, 帧间人物位置瞬移, 人物肢体虚影重影, 关节弯折角度反常'
             # 验证参数
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200

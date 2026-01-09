@@ -12,10 +12,10 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
     'negative_prompt': fields.String(required=False, description='负面提示词'),
     'seed': fields.Integer(required=False, description='随机种子'),
-    'steps': fields.Integer(required=False, default=30, description='推理步数'),
+    'steps': fields.Integer(required=False, default=9, description='推理步数'),
     'width': fields.Integer(required=False, default=544, description='图片宽度'),
     'height': fields.Integer(required=False, default=544, description='图片高度'),
-    'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子')
+    'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子')
 })
 
 img2img_model = image_ns.model('Img2ImgRequest', {
@@ -25,7 +25,7 @@ img2img_model = image_ns.model('Img2ImgRequest', {
     'steps': fields.Integer(required=False, default=20, description='推理步数'),
     'width': fields.Integer(required=False, default=544, description='图片宽度'),
     'height': fields.Integer(required=False, default=544, description='图片高度'),
-    'guidance_scale': fields.Float(required=False, default=5.0, description='引导缩放因子'),
+    'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子'),
     'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
 })
 
@@ -41,10 +41,13 @@ class Text2Img(Resource):
             prompt = data.get('prompt')
             negative_prompt = data.get('negative_prompt', '')
             seed = data.get('seed')
-            steps = data.get('steps', 30)
+            steps = data.get('steps', 9)
             width = data.get('width', 544)
             height = data.get('height', 544)
-            guidance_scale = data.get('guidance_scale', 5.0)
+            guidance_scale = data.get('guidance_scale', 7.5)
+            
+            # 未知bug 反向提示词必须要和提示词一样，不然画面9步快速推理会有问题 
+            negative_prompt = prompt
             
             # 验证参数
             if not prompt:
@@ -89,7 +92,9 @@ class Img2Img(Resource):
             steps = data.get('steps', 20)
             width = data.get('width', 544)
             height = data.get('height', 544)
-            guidance_scale = data.get('guidance_scale', 5.0)
+            guidance_scale = data.get('guidance_scale', 7.5)
+
+            negative_prompt = negative_prompt.strip() if (negative_prompt and negative_prompt.strip()) else '模糊, 低分辨率, 像素化, 马赛克, 透视错误, 背景扭曲, 漂浮物体, 物体融合, 重复物体, 背景杂乱, 过曝, 欠曝, 光线不自然, 阴影不一致, 色彩溢出, 色彩失真, 诡异配色, 边缘模糊, 锯齿边缘, 文字叠加, 水印, 签名, AI伪影, 画面错乱, 噪点, 颗粒感, 物体畸形, 材质不真实, 构图混乱, 元素杂乱, 人物变形, 面部扭曲, 五官错位, 多手指, 少手指, 手指扭曲, 头发杂乱, 服装穿模, 身体比例失调, 动作僵硬, 表情诡异, 皮肤质感差, 细节丢失'
             
             # 验证参数
             if not prompt:

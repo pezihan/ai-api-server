@@ -273,26 +273,40 @@ def save_to_video(
             command,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
 
         if process.stdin is None:
             raise BrokenPipeError("No stdin buffer received.")
 
-        # Write frames to FFmpeg
-        for frame in frames:
-            # Pad frame if needed
-            if frame.shape[0] < height or frame.shape[1] < width:
-                padded = np.zeros((height, width, 3), dtype=np.uint8)
-                padded[: frame.shape[0], : frame.shape[1]] = frame
-                frame = padded
-            process.stdin.write(frame.tobytes())
-
-        process.stdin.close()
-        process.wait()
-
-        if process.returncode != 0:
+        try:
+            # Write frames to FFmpeg
+            for frame in frames:
+                # Pad frame if needed
+                if frame.shape[0] < height or frame.shape[1] < width:
+                    padded = np.zeros((height, width, 3), dtype=np.uint8)
+                    padded[: frame.shape[0], : frame.shape[1]] = frame
+                    frame = padded
+                # Ensure frame has correct dimensions
+                assert frame.shape == (height, width, 3), f"Frame shape {frame.shape} does not match expected shape {(height, width, 3)}"
+                process.stdin.write(frame.tobytes())
+                process.stdin.flush()  # Flush buffer to avoid pipe overflow
+        except BrokenPipeError as e:
+            # Read FFmpeg error output to understand why it crashed
             error_output = process.stderr.read().decode() if process.stderr else "Unknown error"
-            raise RuntimeError(f"FFmpeg failed with error: {error_output}")
+            raise RuntimeError(f"FFmpeg crashed with error: {error_output}\nOriginal error: {e}")
+        finally:
+            if process.stdin:
+                process.stdin.close()
+
+        # Wait for FFmpeg to finish and get output
+        stdout_output, stderr_output = process.communicate()
+        returncode = process.returncode
+
+        if returncode != 0:
+            error_msg = stderr_output.decode() if stderr_output else "Unknown error"
+            stdout_msg = stdout_output.decode() if stdout_output else ""
+            raise RuntimeError(f"FFmpeg failed with return code {returncode}\nStderr: {error_msg}\nStdout: {stdout_msg}")
 
     else:
         raise ValueError(f"Unknown save method: {method}")

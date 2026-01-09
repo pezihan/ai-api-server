@@ -43,6 +43,27 @@ pip install -v -e .
 ### 安装推理加速
 ```
 pip install flash-attn --no-build-isolation
+
+# 可以从以下链接下载预编译的whl文件
+https://github.com/Dao-AILab/flash-attention/releases/tag/v2.8.3
+
+# python3.12 + torch2.8.0 + cuda12.1 通过测试
+flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+```
+
+# 安装其他依赖
+如果使用fb8模型需要安装
+```bash
+pip install -r requirements_fb8.txt
+
+# 兼容3090(sm_86)、4090(sm_89)、5090(sm_120) 如果其他显卡需要修改，算力配置
+export TORCH_CUDA_ARCH_LIST="8.6;8.9;12.0"
+git clone https://github.com/KONAKONA666/q8_kernels
+cd q8_kernels 
+git submodule init
+git submodule update
+python setup.py install
+pip install --no-build-isolation .
 ```
 
 ### 4. 配置环境变量
@@ -96,10 +117,29 @@ docker-compose up -d
 ### 6. 启动服务
 
 #### 6.1 启动API接口服务
-
+复制`supervisor.worker.conf`、`supervisor.api.conf`到`/etc/supervisor/conf.d/`目录下
 ```bash
-python run.py
+sudo apt install -y supervisor
+# 重新加载配置（新增/修改配置后必须执行）
+sudo supervisorctl reload
+
+# 启动你的进程（替换为配置中的program名，比如my_app）
+sudo supervisorctl start ai_server_worker
+
+# 查看所有进程状态
+sudo supervisorctl status
+
+# 重启进程
+sudo supervisorctl restart ai_server_worker
+
+# 停止进程
+sudo supervisorctl stop ai_server_worker
+
+# 实时查看日志（排错用）
+sudo supervisorctl tail -f ai_server_worker  # 查看标准输出
+sudo supervisorctl tail -f ai_server_worker stderr  # 查看错误日志
 ```
+
 
 API服务将在`http://localhost:5001`启动，文档可通过`http://localhost:5001/api/docs`访问。
 

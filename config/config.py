@@ -29,7 +29,7 @@ class Config:
     RABBITMQ_VIRTUAL_HOST = os.environ.get('RABBITMQ_VIRTUAL_HOST', '/')
 
     # 文件保存目录
-    FILE_SAVE_DIR = os.environ.get('FILE_SAVE_DIR', '/tmp')
+    FILE_SAVE_DIR = os.environ.get('FILE_SAVE_DIR', '/files')
 
     # wan模型目录
     MODEL_DIR = os.environ.get('MODEL_DIR', '/models')
