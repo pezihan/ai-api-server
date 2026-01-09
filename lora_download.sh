@@ -10,6 +10,11 @@ modelscope download --model AI-ModelScope/pixel_art_style_lora_z_image_turbo \
     --local_dir $LORA_DIR \
     --include "pixel_art_style_z_image_turbo.safetensors"
 
+modelscope download --model DiffSynth-Studio/Z-Image-Turbo-DistillPatch \
+    --local_dir $LORA_DIR \
+    --include "model.safetensors"
+mv $LORA_DIR/model.safetensors $LORA_DIR/Z_Image_Turbo_DistillPatch.safetensors
+
 # wan2.1
 
 # wan2.2

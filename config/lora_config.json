@@ -38,6 +38,12 @@
   "z_image": [
     {
       "id": 1,
+      "name": "DiffSynth-Studio/Z-Image-Turbo-DistillPatch",
+      "path": "Z_Image_Turbo_DistillPatch.safetensors",
+      "strength": null
+    },
+    {
+      "id": 2,
       "name": "AI-ModelScope/pixel_art_style_lora_z_image_turbo",
       "path": "pixel_art_style_z_image_turbo.safetensors",
       "strength": null
