@@ -4,7 +4,7 @@
       "id": 1,
       "name": "chuanjiaoshi",
       "path": "DR34M15H_T2V_HD_v1.safetensors",
-      "strength": 0.8
+      "strength": 1.0
     }
   ],
   "wan_2_2_i2v": [
@@ -12,7 +12,7 @@
       "id": 1,
       "name": "ziwei",
       "path": "ziwei.safetensors",
-      "strength": 0.8
+      "strength": 1.0
     }
   ],
   "qwen_image_edit": [
