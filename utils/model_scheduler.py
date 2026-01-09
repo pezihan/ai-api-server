@@ -83,7 +83,8 @@ def model_worker_process(task_queue, result_queue):
                     if model_pipeline is None:
                         raise RuntimeError("模型未加载")
                     lora_configs = msg.params.get('lora_configs')
-                    
+                    if 'lora_configs' in msg.params:
+                        del msg.params['lora_configs']
                     # 执行推理
                     if hasattr(model_pipeline, 'infer'):
                         # 动态加载/切换LoRA
