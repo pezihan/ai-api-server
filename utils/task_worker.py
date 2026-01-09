@@ -1,13 +1,14 @@
 import time
 import os
 import base64
-import pika
 import threading
+import json
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.rabbitmq_client import rabbitmq_client
 from config.config import config
+from utils.lora_utils import get_lora_configs
 from PIL import Image
 class TaskWorker:
     """任务工作器，负责处理生成任务"""
@@ -20,6 +21,19 @@ class TaskWorker:
         self.message_queue_lock = threading.Lock()  # 消息队列锁
         self.worker_thread = None  # 工作线程
         self.worker_event = threading.Event()  # 工作线程事件，用于通知有新消息
+    
+    def _get_lora_configs(self, task_type, lora_ids):
+        """
+        根据任务类型和lora ids获取对应的lora配置
+        
+        Args:
+            task_type: str, 任务类型
+            lora_ids: list, lora id列表
+            
+        Returns:
+            list: lora配置列表
+        """
+        return get_lora_configs(task_type, lora_ids)
     
     def start(self):
         """启动任务工作器"""
@@ -211,6 +225,31 @@ class TaskWorker:
         guidance_scale = task_params.get('guidance_scale', 5.0)
         width = task_params.get('width', 512)
         height = task_params.get('height', 512)
+        lora_ids = task_params.get('lora_ids', [])
+        
+        # 处理LoRA配置
+        lora_configs = self._get_lora_configs(task_type, lora_ids)
+        # 卸载历史LoRA
+        if hasattr(pipe, 'unload_lora_weights'):
+            try:
+                pipe.unload_lora_weights()
+                logger.info("已卸载历史LoRA")
+            except Exception as e:
+                logger.error(f"卸载LoRA失败: {e}")
+        # 动态加载/切换LoRA
+        if hasattr(pipe, 'load_lora_weights'):
+            if lora_configs:
+                # 加载新的LoRA
+                for lora_cfg in lora_configs:
+                    lora_path = lora_cfg.get('path')
+                    strength = lora_cfg.get('strength', 1.0)
+                    if lora_path:
+                        try:
+                            pipe.load_lora_weights(lora_path, scale=strength)
+                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
+                        except Exception as e:
+                            logger.error(f"加载LoRA失败: {e}")
+                
 
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
@@ -289,9 +328,35 @@ class TaskWorker:
         width = task_params.get('width', 544)
         height = task_params.get('height', 960)
         num_frames = task_params.get('num_frames', 81)
+        lora_ids = task_params.get('lora_ids', [])
         
         # 加载wan模型
         pipe = model_scheduler.load_model(task_type=task_type)
+        
+        # 处理LoRA配置
+        lora_configs = self._get_lora_configs(task_type, lora_ids)
+        
+        # 动态加载/切换LoRA
+        if hasattr(pipe, 'switch_lora'):
+            if lora_configs:
+                # 加载新的LoRA
+                for lora_cfg in lora_configs:
+                    lora_path = lora_cfg.get('path')
+                    strength = lora_cfg.get('strength', 1.0)
+                    if lora_path:
+                        try:
+                            pipe.switch_lora(lora_path, strength)
+                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
+                        except Exception as e:
+                            logger.error(f"加载LoRA失败: {e}")
+            else:
+                # 没有提交LoRA，卸载历史LoRA
+                if hasattr(pipe, 'remove_lora'):
+                    try:
+                        pipe.remove_lora()
+                        logger.info("已卸载历史LoRA")
+                    except Exception as e:
+                        logger.error(f"卸载LoRA失败: {e}")
         
         # 生成唯一的输出路径
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-videos")

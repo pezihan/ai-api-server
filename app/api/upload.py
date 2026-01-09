@@ -12,8 +12,6 @@ upload_ns = Namespace('upload', description='文件上传接口')
 
 # 文件上传目录配置
 UPLOAD_DIR = os.path.join(config.FILE_SAVE_DIR, "ai-api-uploads")
-# 确保上传目录存在
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # 允许的图片和视频文件类型
 ALLOWED_IMAGE_TYPES = {'png', 'jpg', 'jpeg', 'gif'}
@@ -31,6 +29,9 @@ class UploadFile(Resource):
         支持上传图片和视频文件
         """
         try:
+            # 确保上传目录存在
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            
             # 获取上传的文件
             file = request.files['file']
             if not file or file.filename == '':

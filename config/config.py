@@ -28,11 +28,16 @@ class Config:
     RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_PASSWORD', 'guest')
     RABBITMQ_VIRTUAL_HOST = os.environ.get('RABBITMQ_VIRTUAL_HOST', '/')
 
+    # 配置文件目录
+    CONFIG_DIR = os.path.dirname(__file__)
+
     # 文件保存目录
     FILE_SAVE_DIR = os.environ.get('FILE_SAVE_DIR', '/files')
 
     # wan模型目录
     MODEL_DIR = os.environ.get('MODEL_DIR', '/models')
-    WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', './config/wan')
+    WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', os.path.join(CONFIG_DIR, os.environ.get('WAN_TYPE', 'wan')))
+    
+    LORA_DIR = os.environ.get('LORA_DIR', '/loras')
 # 创建配置实例
 config = Config()

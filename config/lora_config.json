@@ -1,0 +1,46 @@
+{
+  "wan_2_1_t2v": [
+    {
+      "id": 1,
+      "name": "cartoon_style",
+      "path": "cartoon_style.safetensors",
+      "strength": 0.8
+    },
+    {
+      "id": 2,
+      "name": "anime_style",
+      "path": "anime_style.safetensors",
+      "strength": 0.7
+    }
+  ],
+  "wan_2_2_i2v": [
+    {
+      "id": 1,
+      "name": "motion_enhance",
+      "path": "motion_enhance.safetensors",
+      "strength": 0.8
+    },
+    {
+      "id": 2,
+      "name": "style_transfer",
+      "path": "style_transfer.safetensors",
+      "strength": 0.9
+    }
+  ],
+  "qwen_image_edit": [
+    {
+      "id": 1,
+      "name": "image_enhance",
+      "path": "image_enhance.safetensors",
+      "strength": null
+    }
+  ],
+  "z_image": [
+    {
+      "id": 1,
+      "name": "realistic_style",
+      "path": "realistic_style.safetensors",
+      "strength": null
+    }
+  ]
+}

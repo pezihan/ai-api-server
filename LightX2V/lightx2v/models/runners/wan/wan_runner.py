@@ -48,6 +48,7 @@ class WanRunner(DefaultRunner):
         self.tiny_vae_cls = WanVAE_tiny
         self.vae_name = config.get("vae_name", "Wan2.1_VAE.pth")
         self.tiny_vae_name = "taew2_1.pth"
+        self.lora_wrapper = None
 
     def load_transformer(self):
         model = WanModel(
@@ -57,12 +58,12 @@ class WanRunner(DefaultRunner):
         )
         if self.config.get("lora_configs") and self.config.lora_configs:
             assert not self.config.get("dit_quantized", False)
-            lora_wrapper = WanLoraWrapper(model)
+            self.lora_wrapper = WanLoraWrapper(model)
             for lora_config in self.config.lora_configs:
                 lora_path = lora_config["path"]
                 strength = lora_config.get("strength", 1.0)
-                lora_name = lora_wrapper.load_lora(lora_path)
-                lora_wrapper.apply_lora(lora_name, strength)
+                lora_name = self.lora_wrapper.load_lora(lora_path)
+                self.lora_wrapper.apply_lora(lora_name, strength)
                 logger.info(f"Loaded LoRA: {lora_name} with strength: {strength}")
         return model
 
@@ -206,6 +207,32 @@ class WanRunner(DefaultRunner):
         else:
             vae_decoder = vae_encoder
         return vae_encoder, vae_decoder
+
+    def load_lora(self, lora_path, strength=1.0):
+        """动态加载并应用LoRA"""
+        if not self.lora_wrapper:
+            self.lora_wrapper = WanLoraWrapper(self.model)
+        
+        lora_name = self.lora_wrapper.load_lora(lora_path)
+        success = self.lora_wrapper.apply_lora(lora_name, strength)
+        return success
+
+    def remove_lora(self):
+        """移除所有LoRA"""
+        if self.lora_wrapper:
+            self.lora_wrapper.remove_lora()
+
+    def switch_lora(self, lora_path, strength=1.0):
+        """切换到新的LoRA"""
+        if self.lora_wrapper:
+            self.lora_wrapper.remove_lora()
+        return self.load_lora(lora_path, strength)
+
+    def list_loaded_loras(self):
+        """列出已加载的LoRA"""
+        if self.lora_wrapper:
+            return self.lora_wrapper.list_loaded_loras()
+        return []
 
     def init_scheduler(self):
         if self.config["feature_caching"] == "NoCaching":

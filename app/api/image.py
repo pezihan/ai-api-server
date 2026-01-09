@@ -3,6 +3,7 @@ from flask_restx import Namespace, Resource, fields
 from utils.task_manager import task_manager
 from utils.logger import logger
 from middlewares.auth import auth_required
+from utils.lora_utils import validate_lora_ids, validate_lora_files
 
 # 创建命名空间
 image_ns = Namespace('image', description='图片生成接口')
@@ -15,7 +16,8 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'steps': fields.Integer(required=False, default=9, description='推理步数'),
     'width': fields.Integer(required=False, default=544, description='图片宽度'),
     'height': fields.Integer(required=False, default=544, description='图片高度'),
-    'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子')
+    'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子'),
+    'lora_ids': fields.List(fields.Integer, required=False, description='LoRA模型ID列表')
 })
 
 img2img_model = image_ns.model('Img2ImgRequest', {
@@ -27,6 +29,7 @@ img2img_model = image_ns.model('Img2ImgRequest', {
     'height': fields.Integer(required=False, default=544, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子'),
     'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
+    'lora_ids': fields.List(fields.Integer, required=False, description='LoRA模型ID列表')
 })
 
 @image_ns.route('/text2img')
@@ -53,6 +56,19 @@ class Text2Img(Resource):
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200
             
+            # 校验lora_ids
+            lora_ids = data.get('lora_ids', [])
+            if lora_ids:
+                # 校验lora_id是否存在于配置文件中
+                valid, msg = validate_lora_ids('text2img', lora_ids)
+                if not valid:
+                    return {'code': 400, 'msg': msg, 'data': None}, 200
+                
+                # 校验lora文件是否存在
+                valid, msg = validate_lora_files('text2img', lora_ids)
+                if not valid:
+                    return {'code': 400, 'msg': msg, 'data': None}, 200
+            
             # 创建任务
             task_params = {
                 'prompt': prompt,
@@ -61,7 +77,8 @@ class Text2Img(Resource):
                 'steps': steps,
                 'width': width,
                 'height': height,
-                'guidance_scale': guidance_scale
+                'guidance_scale': guidance_scale,
+                'lora_ids': lora_ids
             }
             
             task_id = task_manager.create_task('text2img', task_params)
@@ -102,6 +119,19 @@ class Img2Img(Resource):
             if not image_path:
                 return {'code': 400, 'msg': '缺少图片路径参数', 'data': None}, 200
             
+            # 校验lora_ids
+            lora_ids = data.get('lora_ids', [])
+            if lora_ids:
+                # 校验lora_id是否存在于配置文件中
+                valid, msg = validate_lora_ids('img2img', lora_ids)
+                if not valid:
+                    return {'code': 400, 'msg': msg, 'data': None}, 200
+                
+                # 校验lora文件是否存在
+                valid, msg = validate_lora_files('img2img', lora_ids)
+                if not valid:
+                    return {'code': 400, 'msg': msg, 'data': None}, 200
+            
             # 创建任务
             task_params = {
                 'prompt': prompt,
@@ -111,7 +141,8 @@ class Img2Img(Resource):
                 'steps': steps,
                 'width': width,
                 'height': height,
-                'guidance_scale': guidance_scale
+                'guidance_scale': guidance_scale,
+                'lora_ids': lora_ids
             }
             
             task_id = task_manager.create_task('img2img', task_params)

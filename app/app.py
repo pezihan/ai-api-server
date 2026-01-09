@@ -6,7 +6,7 @@ from utils.logger import logger, log_error
 import traceback
 
 # 导入API模块的命名空间
-from app.api import auth_ns, health_ns, image_ns, video_ns, task_ns, upload_ns
+from app.api import auth_ns, health_ns, image_ns, video_ns, task_ns, upload_ns, lora_ns
 
 # 创建Flask应用
 app = Flask(__name__)
@@ -39,6 +39,7 @@ api.add_namespace(image_ns)
 api.add_namespace(video_ns)
 api.add_namespace(task_ns)
 api.add_namespace(upload_ns)
+api.add_namespace(lora_ns)
 
 # 请求日志记录中间件
 @app.before_request

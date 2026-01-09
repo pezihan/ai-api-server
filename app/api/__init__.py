@@ -4,5 +4,6 @@ from .image import image_ns
 from .video import video_ns
 from .task import task_ns
 from .upload import upload_ns
+from .lora import lora_ns
 
-__all__ = ['auth_ns', 'health_ns', 'image_ns', 'video_ns', 'task_ns', 'upload_ns']
+__all__ = ['auth_ns', 'health_ns', 'image_ns', 'video_ns', 'task_ns', 'upload_ns', 'lora_ns']
