@@ -1,6 +1,6 @@
 import os
 import json
-import config
+from config.config import config
 
 # 任务类型映射
 task_type_map = {
