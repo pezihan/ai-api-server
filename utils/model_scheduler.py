@@ -82,11 +82,54 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型工作进程运行任务: {msg.task_type}")
                     if model_pipeline is None:
                         raise RuntimeError("模型未加载")
+                    lora_configs = msg.params.get('lora_configs')
                     
                     # 执行推理
                     if hasattr(model_pipeline, 'infer'):
+                        # 动态加载/切换LoRA
+                        if hasattr(model_pipeline, 'switch_lora'):
+                            if lora_configs:
+                                # 加载新的LoRA
+                                for lora_cfg in lora_configs:
+                                    lora_path = lora_cfg.get('path')
+                                    strength = lora_cfg.get('strength', 1.0)
+                                    if lora_path:
+                                        try:
+                                            model_pipeline.switch_lora(lora_path, strength)
+                                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
+                                        except Exception as e:
+                                            logger.error(f"加载LoRA失败: {e}")
+                            else:
+                                # 没有提交LoRA，卸载历史LoRA
+                                if hasattr(model_pipeline, 'remove_lora'):
+                                    try:
+                                        model_pipeline.remove_lora()
+                                        logger.info("已卸载历史LoRA")
+                                    except Exception as e:
+                                        logger.error(f"卸载LoRA失败: {e}")
+                        
                         result = model_pipeline.infer(**msg.params)
                     else:
+                        # 卸载历史LoRA
+                        if hasattr(model_pipeline, 'unload_lora_weights'):
+                            try:
+                                model_pipeline.unload_lora_weights()
+                                logger.info("已卸载历史LoRA")
+                            except Exception as e:
+                                logger.error(f"卸载LoRA失败: {e}")
+                        # 动态加载/切换LoRA
+                        if hasattr(model_pipeline, 'load_lora_weights'):
+                            if lora_configs is not None:
+                                for lora_cfg in lora_configs:
+                                    lora_path = lora_cfg.get('path')
+                                    strength = lora_cfg.get('strength', 1.0)
+                                    if lora_path:
+                                        try:
+                                            model_pipeline.load_lora_weights(lora_path, scale=strength)
+                                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
+                                        except Exception as e:
+                                            logger.error(f"加载LoRA失败: {e}")
+
                         result = model_pipeline(**msg.params)
                     logger.info(f"模型工作进程任务完成: {msg.task_type}")
                     result_queue.put(ModelMessage('result', msg.task_type, result=result))

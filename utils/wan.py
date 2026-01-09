@@ -169,6 +169,11 @@ class WanPipeRunner:
     if modify_config:
       self.runner.set_config(saved_config)
 
+  def switch_lora(self, lora_path: str, strength: float = 1.0):
+    self.runner.switch_lora(lora_path, strength)
+
+  def remove_lora(self):
+    self.runner.remove_lora()
 
   def clean_up(self):
     # Clean up distributed process group

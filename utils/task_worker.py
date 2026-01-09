@@ -228,28 +228,7 @@ class TaskWorker:
         lora_ids = task_params.get('lora_ids', [])
         
         # 处理LoRA配置
-        lora_configs = self._get_lora_configs(task_type, lora_ids)
-        # 卸载历史LoRA
-        if hasattr(pipe, 'unload_lora_weights'):
-            try:
-                pipe.unload_lora_weights()
-                logger.info("已卸载历史LoRA")
-            except Exception as e:
-                logger.error(f"卸载LoRA失败: {e}")
-        # 动态加载/切换LoRA
-        if hasattr(pipe, 'load_lora_weights'):
-            if lora_configs:
-                # 加载新的LoRA
-                for lora_cfg in lora_configs:
-                    lora_path = lora_cfg.get('path')
-                    strength = lora_cfg.get('strength', 1.0)
-                    if lora_path:
-                        try:
-                            pipe.load_lora_weights(lora_path, scale=strength)
-                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
-                        except Exception as e:
-                            logger.error(f"加载LoRA失败: {e}")
-                
+        lora_configs = self._get_lora_configs(task_type, lora_ids)    
 
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
@@ -264,7 +243,8 @@ class TaskWorker:
                 height=height,
                 num_inference_steps=steps,
                 guidance_scale=guidance_scale,
-                generator=generator
+                generator=generator,
+                lora_configs=lora_configs
             )
             
         elif task_type == 'img2img':
@@ -290,6 +270,7 @@ class TaskWorker:
                 num_images_per_prompt=1,
                 width=width,
                 height=height,
+                lora_configs=lora_configs
             )
         
         # 获取生成的图片
@@ -335,29 +316,7 @@ class TaskWorker:
         
         # 处理LoRA配置
         lora_configs = self._get_lora_configs(task_type, lora_ids)
-        
-        # 动态加载/切换LoRA
-        if hasattr(pipe, 'switch_lora'):
-            if lora_configs:
-                # 加载新的LoRA
-                for lora_cfg in lora_configs:
-                    lora_path = lora_cfg.get('path')
-                    strength = lora_cfg.get('strength', 1.0)
-                    if lora_path:
-                        try:
-                            pipe.switch_lora(lora_path, strength)
-                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
-                        except Exception as e:
-                            logger.error(f"加载LoRA失败: {e}")
-            else:
-                # 没有提交LoRA，卸载历史LoRA
-                if hasattr(pipe, 'remove_lora'):
-                    try:
-                        pipe.remove_lora()
-                        logger.info("已卸载历史LoRA")
-                    except Exception as e:
-                        logger.error(f"卸载LoRA失败: {e}")
-        
+ 
         # 生成唯一的输出路径
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-videos")
         os.makedirs(output_dir, exist_ok=True)
@@ -373,7 +332,8 @@ class TaskWorker:
                 target_width=width,
                 target_height=height,
                 target_video_length=num_frames,
-                infer_steps=steps
+                infer_steps=steps,
+                lora_configs=lora_configs
             )
         elif task_type == 'img2video':
             # 图生视频
@@ -392,7 +352,8 @@ class TaskWorker:
                 target_width=width,
                 target_height=height,
                 target_video_length=num_frames,
-                infer_steps=steps
+                infer_steps=steps,
+                lora_configs=lora_configs
             )
         
         # 生成视频封面（截取第一帧）
