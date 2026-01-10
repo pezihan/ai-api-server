@@ -44,7 +44,7 @@ def _format_lora_configs(lora_configs: Optional[List[LoraConfig]] | None) -> Opt
             high_noise_config = {
                 'name': 'high_noise_model',
                 'path': cfg['high_noise_model'].get('path'),
-                'strength': cfg['high_noise_model'].get('strength')
+                'strength': cfg['high_noise_model'].get('strength', cfg.get('strength', 1.0))
             }
             formatted_configs.append(high_noise_config)
         
@@ -53,7 +53,7 @@ def _format_lora_configs(lora_configs: Optional[List[LoraConfig]] | None) -> Opt
             low_noise_config = {
                 'name': 'low_noise_model',
                 'path': cfg['low_noise_model'].get('path'),
-                'strength': cfg['low_noise_model'].get('strength')
+                'strength': cfg['low_noise_model'].get('strength', cfg.get('strength', 1.0))
             }
             formatted_configs.append(low_noise_config)
         
