@@ -2,21 +2,59 @@
   "wan_2_1_t2v": [
     {
       "id": 1,
-      "name": "chuanjiaoshi",
-      "path": "DR34M15H_T2V_HD_v1.safetensors",
+      "name": "故事书民间艺术",
+      "path": "wan/故事书民间艺术.safetensors",
+      "strength": 1.0
+    },
+    {
+      "id": 2,
+      "name": "镜头拉远(触发词paishe567)",
+      "path": "wan/镜头拉远(触发词paishe567).safetensors",
+      "strength": 1.0
+    },
+    {
+      "id": 3,
+      "name": "脸部细节增强",
+      "path": "wan/脸部细节增强.safetensors",
+      "strength": 1.0
+    },
+    {
+      "id": 4,
+      "name": "希区柯克变焦(触发词xqkk567)",
+      "path": "wan/希区柯克变焦(触发词xqkk567).safetensors",
       "strength": 1.0
     }
   ],
   "wan_2_2_i2v": [
     {
       "id": 1,
-      "name": "ziwei",
+      "name": "故事书民间艺术",
       "high_noise_model": {
-        "path": "ziwei.safetensors",
+        "path": "wan/故事书民间艺术.safetensors",
         "strength": 1.0
-      },
+      }
+    },
+    {
+      "id": 2,
+      "name": "镜头拉远(触发词paishe567)",
+      "high_noise_model": {
+        "path": "wan/镜头拉远(触发词paishe567).safetensors",
+        "strength": 1.0
+      }
+    },
+    {
+      "id": 3,
+      "name": "希区柯克变焦(触发词xqkk567)",
       "low_noise_model": {
-        "path": "ziwei.safetensors",
+        "path": "wan/脸部细节增强.safetensors",
+        "strength": 1.0
+      }
+    },
+    {
+      "id": 2,
+      "name": "镜头拉远(触发词paishe567)",
+      "high_noise_model": {
+        "path": "wan/希区柯克变焦(触发词xqkk567).safetensors",
         "strength": 1.0
       }
     }
@@ -24,23 +62,53 @@
   "qwen_image_edit": [
     {
       "id": 1,
-      "name": "flymy-ai/qwen-image-edit-2509-inscene-lora",
-      "path": "pytorch_lora_weights.safetensors",
-      "strength": null
+      "name": "3d-pvc手办",
+      "path": "qwen_image_edit/3d-pvc手办.safetensors",
+      "strength": 1.0
+    },
+    {
+      "id": 2,
+      "name": "动漫转真人(触发词-变成真实风格)",
+      "path": "qwen_image_edit/动漫转真人(触发词-变成真实风格).safetensors",
+      "strength": 1.0
+    },
+    {
+      "id": 3,
+      "name": "真实风格(触发词-将图像转换为逼真的照片)",
+      "path": "qwen_image_edit/真实风格(触发词-将图像转换为逼真的照片).safetensors",
+      "strength": 1.0
     }
   ],
   "z_image": [
     {
       "id": 1,
-      "name": "DiffSynth-Studio/Z-Image-Turbo-DistillPatch",
-      "path": "Z_Image_Turbo_DistillPatch.safetensors",
-      "strength": null
+      "name": "逼真皮肤纹理风格(细节丰富的皮肤)v2.1",
+      "path": "z_image/逼真皮肤纹理风格(细节丰富的皮肤)v2.1.safetensors",
+      "strength": 1.0
     },
-    {
+     {
       "id": 2,
-      "name": "AI-ModelScope/pixel_art_style_lora_z_image_turbo",
-      "path": "pixel_art_style_z_image_turbo.safetensors",
-      "strength": null
+      "name": "逼真的生活方式和动作风格",
+      "path": "z_image/逼真的生活方式和动作风格.safetensors",
+      "strength": 1.0
+    },
+     {
+      "id": 3,
+      "name": "柯达彩色胶片XL风格",
+      "path": "z_image/柯达彩色胶片XL风格.safetensors",
+      "strength": 1.0
+    },
+     {
+      "id": 4,
+      "name": "亚洲网红女孩风格",
+      "path": "z_image/亚洲网红女孩风格.safetensors",
+      "strength": 1.0
+    },
+     {
+      "id": 5,
+      "name": "手机摄影风格",
+      "path": "z_image/手机摄影风格.safetensors",
+      "strength": 1.0
     }
   ]
 }
