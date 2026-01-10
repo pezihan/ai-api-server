@@ -80,7 +80,8 @@ def model_worker_process(task_queue, result_queue):
                 # 加载模型
                 try:
                     logger.info(f"模型工作进程加载模型: {msg.task_type}")
-                    lora_configs = msg.lora_configs
+                    # 从params中获取lora_configs
+                    lora_configs = msg.params.get('lora_configs')
                     logger.info(f"lora配置: {lora_configs}")
                     # 根据任务类型加载不同模型
                     if msg.task_type == 'text2img':
@@ -96,8 +97,10 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型 (任务: {current_task}) 加载成功")
                     result_queue.put(ModelMessage('result', msg.task_type, result="success"))
                 except Exception as e:
-                    logger.exception(f"模型工作进程加载模型失败: {e}")
-                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+                    import traceback
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"模型工作进程加载模型失败: {e}\n{error_traceback}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=f"模型工作进程加载模型失败: {e}\n{error_traceback}"))
                     # 清理模型引用
                     if model_pipeline is not None:
                         try:
@@ -177,8 +180,10 @@ def model_worker_process(task_queue, result_queue):
                     logger.info("模型工作进程模型卸载完成")
                     result_queue.put(ModelMessage('result', msg.task_type, result="success"))
                 except Exception as e:
-                    logger.exception(f"模型工作进程卸载模型失败: {e}")
-                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+                    import traceback
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"模型工作进程卸载模型失败: {e}\n{error_traceback}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=f"模型工作进程卸载模型失败: {e}\n{error_traceback}"))
     
     except Exception as e:
         # 捕获并记录详细的异常信息，包括堆栈
@@ -593,8 +598,13 @@ class ModelScheduler:
                 if self.model_process is None or not self.model_process.is_alive():
                     self._create_model_process()
                 
+                # 将lora_configs添加到params中
+                kwargs_with_lora = kwargs.copy()
+                if lora_configs:
+                    kwargs_with_lora['lora_configs'] = lora_configs
+                
                 # 发送加载模型消息
-                msg = ModelMessage('load', task_type, lora_configs=lora_configs, params=kwargs)
+                msg = ModelMessage('load', task_type, params=kwargs_with_lora)
                 result_msg = self._send_message(msg, timeout=600)  # 增加超时时间
                 
                 if result_msg.msg_type == 'error':
