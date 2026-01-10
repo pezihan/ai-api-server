@@ -10,33 +10,62 @@ from config.config import config
 # Set PyTorch CUDA memory allocation configuration to avoid fragmentation
 os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
 
+
+class ModelLoraConfig(TypedDict):
+    name: str | None
+    path: str
+    strength: Optional[float | int] | None
+
 class LoraConfig(TypedDict):
     id: int
     name: str
-    path: str
-    strength: Optional[float]
+    high_noise_model: ModelLoraConfig
+    low_noise_model: ModelLoraConfig
+    path: str | None
+    strength: Optional[float] | None
 
-# 格式化Wan模型的LoRA配置，只保留path和strength字段
-def _format_wan_lora_configs(lora_configs: Optional[List[LoraConfig]]) -> Optional[List[dict]]:
+# 格式化模型的LoRA配置
+def _format_lora_configs(lora_configs: Optional[List[LoraConfig]] | None) -> Optional[List[ModelLoraConfig]] | None:
     """
-    格式化Wan模型的LoRA配置列表，只保留path和strength字段
+    格式化Wan模型的LoRA配置列表，处理high_noise_model和low_noise_model字段
     
     Args:
         lora_configs: 原始LoRA配置列表
         
     Returns:
-        格式化后的LoRA配置列表，只包含path和strength字段
+        格式化后的LoRA配置列表，包含处理后的噪声模型配置
     """
     if not lora_configs:
         return None
     
     formatted_configs = []
     for cfg in lora_configs:
-        formatted_cfg = {
-            'path': cfg.get('path'),
-            'strength': cfg.get('strength')
-        }
-        formatted_configs.append(formatted_cfg)
+        # 处理high_noise_model字段
+        if 'high_noise_model' in cfg:
+            high_noise_config = {
+                'name': 'high_noise_model',
+                'path': cfg['high_noise_model'].get('path'),
+                'strength': cfg['high_noise_model'].get('strength')
+            }
+            formatted_configs.append(high_noise_config)
+        
+        # 处理low_noise_model字段
+        if 'low_noise_model' in cfg:
+            low_noise_config = {
+                'name': 'low_noise_model',
+                'path': cfg['low_noise_model'].get('path'),
+                'strength': cfg['low_noise_model'].get('strength')
+            }
+            formatted_configs.append(low_noise_config)
+        
+        # 保持对原始path字段的兼容支持
+        if 'path' in cfg and cfg.get('path'):
+            original_config = {
+                'name': cfg.get('name'),
+                'path': cfg.get('path'),
+                'strength': cfg.get('strength')
+            }
+            formatted_configs.append(original_config)
     
     return formatted_configs
 
@@ -119,6 +148,7 @@ def model_worker_process(task_queue, result_queue):
                     lora_configs = msg.params.get('lora_configs')
                     if 'lora_configs' in msg.params:
                         del msg.params['lora_configs']
+                    formatted_lora_configs = _format_lora_configs(lora_configs)
                     # 执行推理
                     if hasattr(model_pipeline, 'infer'):
                         result = model_pipeline.infer(**msg.params)
@@ -132,8 +162,8 @@ def model_worker_process(task_queue, result_queue):
                                 logger.error(f"卸载LoRA失败: {e}")
                         # 动态加载/切换LoRA
                         if hasattr(model_pipeline, 'load_lora_weights'):
-                            if lora_configs is not None:
-                                for lora_cfg in lora_configs:
+                            if formatted_lora_configs is not None:
+                                for lora_cfg in formatted_lora_configs:
                                     lora_path = lora_cfg.get('path')
                                     strength = lora_cfg.get('strength', 1.0)
                                     if lora_path:
@@ -341,8 +371,8 @@ def _load_wan_t2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] 
     logging.info(f"模型加载参数: model_path={model_path}, model_config_path={model_config_path}, model_cls={model_cls}")
     
     try:
-        # 格式化lora_configs，只保留path和strength字段
-        formatted_lora_configs = _format_wan_lora_configs(lora_configs)
+        # 格式化lora_configs
+        formatted_lora_configs = _format_lora_configs(lora_configs)
         
         pipe = WanModelPipeRunner(
             model_path=model_path,
@@ -371,8 +401,8 @@ def _load_wan_i2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] 
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
     model_cls = params.get('model_cls', "wan2.2_moe_distill")
     
-    # 格式化lora_configs，只保留path和strength字段
-    formatted_lora_configs = _format_wan_lora_configs(lora_configs)
+    # 格式化lora_configs
+    formatted_lora_configs = _format_lora_configs(lora_configs)
     
     pipe = WanModelPipeRunner(
         model_path=model_path,

@@ -11,8 +11,14 @@
     {
       "id": 1,
       "name": "ziwei",
-      "path": "ziwei.safetensors",
-      "strength": 1.0
+      "high_noise_model": {
+        "path": "ziwei.safetensors",
+        "strength": 1.0
+      },
+      "low_noise_model": {
+        "path": "ziwei.safetensors",
+        "strength": 1.0
+      }
     }
   ],
   "qwen_image_edit": [

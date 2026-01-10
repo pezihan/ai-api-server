@@ -42,17 +42,36 @@ def validate_lora_files(task_type, lora_ids):
         return False, f'不支持的任务类型: {task_type}'
     
     lora_configs = lora_config.get(config_key, [])
-    lora_dict = {cfg.get('id'): cfg.get('path') for cfg in lora_configs}
+    lora_dict = {cfg.get('id'): cfg for cfg in lora_configs}
     
     for lora_id in lora_ids:
-        lora_path = lora_dict.get(lora_id)
-        if not lora_path:
+        lora_cfg = lora_dict.get(lora_id)
+        if not lora_cfg:
             return False, f'LoRA ID {lora_id} 不存在于配置文件中'
         
-        # 构建完整的lora文件路径
-        full_lora_path = os.path.join(config.LORA_DIR, lora_path)
-        if not os.path.exists(full_lora_path):
-            return False, f'LoRA文件不存在: {full_lora_path}'
+        # 检查直接的path字段
+        if 'path' in lora_cfg:
+            lora_path = lora_cfg.get('path')
+            if lora_path:
+                full_lora_path = os.path.join(config.LORA_DIR, lora_path)
+                if not os.path.exists(full_lora_path):
+                    return False, f'LoRA文件不存在: {full_lora_path}'
+        
+        # 检查high_noise_model字段
+        if 'high_noise_model' in lora_cfg:
+            high_noise_path = lora_cfg['high_noise_model'].get('path')
+            if high_noise_path:
+                full_high_noise_path = os.path.join(config.LORA_DIR, high_noise_path)
+                if not os.path.exists(full_high_noise_path):
+                    return False, f'LoRA高噪声模型文件不存在: {full_high_noise_path}'
+        
+        # 检查low_noise_model字段
+        if 'low_noise_model' in lora_cfg:
+            low_noise_path = lora_cfg['low_noise_model'].get('path')
+            if low_noise_path:
+                full_low_noise_path = os.path.join(config.LORA_DIR, low_noise_path)
+                if not os.path.exists(full_low_noise_path):
+                    return False, f'LoRA低噪声模型文件不存在: {full_low_noise_path}'
     
     return True, ''
 
@@ -75,5 +94,14 @@ def get_lora_configs(task_type, lora_ids):
             config_copy = cfg.copy()
             if 'path' in config_copy:
                 config_copy['path'] = os.path.join(config.LORA_DIR, config_copy['path'])
+            
+            # 处理high_noise_model字段
+            if 'high_noise_model' in config_copy and 'path' in config_copy['high_noise_model']:
+                config_copy['high_noise_model']['path'] = os.path.join(config.LORA_DIR, config_copy['high_noise_model']['path'])
+            
+            # 处理low_noise_model字段
+            if 'low_noise_model' in config_copy and 'path' in config_copy['low_noise_model']:
+                config_copy['low_noise_model']['path'] = os.path.join(config.LORA_DIR, config_copy['low_noise_model']['path'])
+            
             result.append(config_copy)
     return result

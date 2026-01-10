@@ -36,8 +36,10 @@ from lightx2v.utils.utils import seed_all
 from lightx2v.utils.lockable_dict import LockableDict
 
 class LoraConfig(TypedDict):
+    name: str | None
     path: str
     strength: Optional[float]
+    
 class WanModelPipeRunner:
   def __init__(self, model_path: os.PathLike, config_json_path: os.PathLike, model_cls: str, task: str, lora_configs: Optional[list[LoraConfig]] = None):
     self.model_cls = model_cls
