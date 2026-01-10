@@ -54,7 +54,7 @@ flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 # 安装其他依赖
 如果使用fb8模型需要安装
 ```bash
-pip install -r requirements_fb8.txt -i https://mirrors.aliyun.com/pypi/simple/
+pip install -r requirements.fp8.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # 兼容3090(sm_86)、4090(sm_89)、5090(sm_120) 如果其他显卡需要修改，算力配置
 export TORCH_CUDA_ARCH_LIST="8.6;8.9;12.0"

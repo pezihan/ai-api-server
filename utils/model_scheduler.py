@@ -659,7 +659,12 @@ class ModelScheduler:
                 
                 # 发送加载模型消息
                 msg = ModelMessage('load', task_type, params=kwargs_with_lora)
-                result_msg = self._send_message(msg, timeout=600)  # 增加超时时间
+                # 加载lora非常费时间，增加额外的超时时间
+                lora_load_time = (len(lora_configs) * (6 * 60))
+                if task_type == 'img2video':
+                    lora_load_time = lora_load_time * 2
+                basics_time = 60 * 6
+                result_msg = self._send_message(msg, timeout=lora_load_time+basics_time)  # 增加超时时间
                 
                 if result_msg.msg_type == 'error':
                     raise RuntimeError(f"模型加载失败: {result_msg.error}")
