@@ -30,19 +30,19 @@ conda activate ai-server
 
 ```bash
 # 安装基础依赖
-pip install -r requirements.txt
+pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
 ### 3. 安装LightX2V依赖
 
 ```bash
 cd LightX2V
-pip install -v -e .
+pip install -v -e . -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
 ### 安装推理加速
 ```
-pip install flash-attn --no-build-isolation
+pip install flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
 
 # 可以从以下链接下载预编译的whl文件
 https://github.com/Dao-AILab/flash-attention/releases/tag/v2.8.3
@@ -54,7 +54,7 @@ flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 # 安装其他依赖
 如果使用fb8模型需要安装
 ```bash
-pip install -r requirements_fb8.txt
+pip install -r requirements_fb8.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # 兼容3090(sm_86)、4090(sm_89)、5090(sm_120) 如果其他显卡需要修改，算力配置
 export TORCH_CUDA_ARCH_LIST="8.6;8.9;12.0"
