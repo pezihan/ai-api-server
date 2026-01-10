@@ -3,35 +3,36 @@ import random
 from pathlib import Path
 from argparse import Namespace
 import logging
-from typing import List, Optional, TypedDict
 logging.basicConfig(level=logging.INFO)
 import sys
 
-# 添加项目根目录到 Python 路径
+# 添加 LightX2V 目录到 Python 路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, project_root)
+lightx2v_root = os.path.join(project_root, 'LightX2V')
+sys.path.insert(0, lightx2v_root)
+logging.info(f"Added LightX2V root to path: {lightx2v_root}")
 
 import torch
 import torch.distributed as dist
 from loguru import logger
 
-from LightX2V.lightx2v.common.ops import *
-from LightX2V.lightx2v.models.runners.qwen_image.qwen_image_runner import QwenImageRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_animate_runner import WanAnimateRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_audio_runner import Wan22AudioRunner, WanAudioRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_distill_runner import WanDistillRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_matrix_game2_runner import WanSFMtxg2Runner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_runner import Wan22MoeRunner, WanRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_sf_runner import WanSFRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.wan.wan_vace_runner import WanVaceRunner  # noqa: F401
-from LightX2V.lightx2v.models.runners.default_runner import DefaultRunner
-from LightX2V.lightx2v.utils.envs import *
-from LightX2V.lightx2v.utils.input_info import set_input_info
-from LightX2V.lightx2v.utils.profiler import *
-from LightX2V.lightx2v.utils.registry_factory import RUNNER_REGISTER
-from LightX2V.lightx2v.utils.set_config import print_config, set_config, set_parallel_config
-from LightX2V.lightx2v.utils.utils import seed_all
-from LightX2V.lightx2v.utils.lockable_dict import LockableDict
+from lightx2v.common.ops import *
+from lightx2v.utils.registry_factory import RUNNER_REGISTER
+from lightx2v.models.runners.qwen_image.qwen_image_runner import QwenImageRunner  # noqa: F401
+from lightx2v.models.runners.wan.wan_animate_runner import WanAnimateRunner  # noqa: F401
+from lightx2v.models.runners.wan.wan_audio_runner import Wan22AudioRunner, WanAudioRunner  # noqa: F401
+from lightx2v.models.runners.wan.wan_distill_runner import WanDistillRunner  # noqa: F401
+from lightx2v.models.runners.wan.wan_matrix_game2_runner import WanSFMtxg2Runner  # noqa: F401
+from lightx2v.models.runners.wan.wan_runner import Wan22MoeRunner, WanRunner  # noqa: F401
+from lightx2v.models.runners.wan.wan_sf_runner import WanSFRunner  # noqa: F401
+from lightx2v.models.runners.wan.wan_vace_runner import WanVaceRunner  # noqa: F401
+from lightx2v.models.runners.default_runner import DefaultRunner
+from lightx2v.utils.envs import *
+from lightx2v.utils.input_info import set_input_info
+from lightx2v.utils.profiler import *
+from lightx2v.utils.set_config import print_config, set_config, set_parallel_config
+from lightx2v.utils.utils import seed_all
+from lightx2v.utils.lockable_dict import LockableDict
 
 class WanModelPipeRunner:
   def __init__(self, model_path: os.PathLike, config_json_path: os.PathLike, model_cls: str, task: str):
