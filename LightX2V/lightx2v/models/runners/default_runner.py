@@ -10,15 +10,7 @@ from loguru import logger
 from requests.exceptions import RequestException
 
 from lightx2v.models.runners.base_runner import BaseRunner
-# Delay import and use consistent path to prevent duplicate metrics registration
-monitor_cli = None
-
-def get_monitor_cli():
-    global monitor_cli
-    if monitor_cli is None:
-        from LightX2V.lightx2v.server.metrics import monitor_cli as cli
-        monitor_cli = cli
-    return monitor_cli
+from lightx2v.server.metrics import monitor_cli
 from lightx2v.utils.envs import *
 from lightx2v.utils.generate_task_id import generate_task_id
 from lightx2v.utils.global_paras import CALIB
@@ -27,14 +19,21 @@ from lightx2v.utils.profiler import *
 from lightx2v.utils.utils import get_optimal_patched_size_with_sp, isotropic_crop_resize, save_to_video, vae_to_comfyui_image
 from lightx2v_platform.base.global_var import AI_DEVICE
 
+torch_device_module = getattr(torch, AI_DEVICE)
 
-def resize_image(img, resolution):
+
+def resize_image(img, resolution, bucket_shape=None):
     assert resolution in ["480p", "540p", "720p"]
-    bucket_config = {
-        0.667: np.array([[480, 832], [544, 960], [720, 1280]], dtype=np.int64),
-        1.500: np.array([[832, 480], [960, 544], [1280, 720]], dtype=np.int64),
-        1.000: np.array([[480, 480], [576, 576], [720, 720]], dtype=np.int64),
-    }
+    if bucket_shape is None:
+        bucket_config = {
+            0.667: np.array([[480, 832], [544, 960], [720, 1280]], dtype=np.int64),
+            1.500: np.array([[832, 480], [960, 544], [1280, 720]], dtype=np.int64),
+            1.000: np.array([[480, 480], [576, 576], [960, 960]], dtype=np.int64),
+        }
+    else:
+        bucket_config = {}
+        for ratio, resolutions in bucket_shape.items():
+            bucket_config[float(ratio)] = np.array(resolutions, dtype=np.int64)
     ori_height = img.shape[-2]
     ori_weight = img.shape[-1]
     ori_ratio = ori_height / ori_weight
@@ -177,7 +176,7 @@ class DefaultRunner(BaseRunner):
             with ProfilingContext4DebugL1(
                 f"Run Dit every step",
                 recorder_mode=GET_RECORDER_MODE(),
-                metrics_func=get_monitor_cli().lightx2v_run_per_step_dit_duration,
+                metrics_func=monitor_cli.lightx2v_run_per_step_dit_duration,
                 metrics_labels=[step_index + 1, infer_steps],
             ):
                 if self.video_segment_num == 1:
@@ -200,7 +199,7 @@ class DefaultRunner(BaseRunner):
 
         if segment_idx is not None and segment_idx == self.video_segment_num - 1:
             del self.inputs
-            torch.cuda.empty_cache()
+            torch_device_module.empty_cache()
 
         return self.model.scheduler.latents
 
@@ -223,20 +222,20 @@ class DefaultRunner(BaseRunner):
                 for model in self.model.model:
                     if hasattr(model.transformer_infer, "offload_manager"):
                         del model.transformer_infer.offload_manager
-                        torch.cuda.empty_cache()
+                        torch_device_module.empty_cache()
                         gc.collect()
                     del model
             else:
                 if hasattr(self.model.transformer_infer, "offload_manager"):
                     del self.model.transformer_infer.offload_manager
-                    torch.cuda.empty_cache()
+                    torch_device_module.empty_cache()
                     gc.collect()
                 del self.model
         if self.config.get("do_mm_calib", False):
             calib_path = os.path.join(os.getcwd(), "calib.pt")
             torch.save(CALIB, calib_path)
             logger.info(f"[CALIB] Saved calibration data successfully to: {calib_path}")
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()
 
     def read_image_input(self, img_path):
@@ -247,12 +246,12 @@ class DefaultRunner(BaseRunner):
 
         if GET_RECORDER_MODE():
             width, height = img_ori.size
-            get_monitor_cli().lightx2v_input_image_len.observe(width * height)
+            monitor_cli.lightx2v_input_image_len.observe(width * height)
         img = TF.to_tensor(img_ori).sub_(0.5).div_(0.5).unsqueeze(0).to(self.init_device)
         self.input_info.original_size = img_ori.size
 
         if self.config.get("resize_mode", None) == "adaptive":
-            img, h, w = resize_image(img, self.config.get("resolution", "480p"))
+            img, h, w = resize_image(img, self.config.get("resolution", "480p"), self.config.get("bucket_shape", None))
             logger.info(f"resize_image target_h: {h}, target_w: {w}")
             patched_h = h // self.config["vae_stride"][1] // self.config["patch_size"][1]
             patched_w = w // self.config["vae_stride"][2] // self.config["patch_size"][2]
@@ -280,7 +279,7 @@ class DefaultRunner(BaseRunner):
         vae_encode_out, latent_shape = self.run_vae_encoder(img_ori if self.vae_encoder_need_img_original else img)
         self.input_info.latent_shape = latent_shape  # Important: set latent_shape in input_info
         text_encoder_output = self.run_text_encoder(self.input_info)
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()
         return self.get_encoder_output_i2v(clip_encoder_out, vae_encode_out, text_encoder_output, img)
 
@@ -288,7 +287,7 @@ class DefaultRunner(BaseRunner):
     def _run_input_encoder_local_t2v(self):
         self.input_info.latent_shape = self.get_latent_shape_with_target_hw()  # Important: set latent_shape in input_info
         text_encoder_output = self.run_text_encoder(self.input_info)
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()
         return {
             "text_encoder_output": text_encoder_output,
@@ -303,7 +302,7 @@ class DefaultRunner(BaseRunner):
         vae_encode_out, latent_shape = self.run_vae_encoder(first_frame, last_frame)
         self.input_info.latent_shape = latent_shape  # Important: set latent_shape in input_info
         text_encoder_output = self.run_text_encoder(self.input_info)
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()
         return self.get_encoder_output_i2v(clip_encoder_out, vae_encode_out, text_encoder_output)
 
@@ -323,14 +322,14 @@ class DefaultRunner(BaseRunner):
         vae_encoder_out, latent_shape = self.run_vae_encoder(src_video, src_ref_images, src_mask)
         self.input_info.latent_shape = latent_shape  # Important: set latent_shape in input_info
         text_encoder_output = self.run_text_encoder(self.input_info)
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()
         return self.get_encoder_output_i2v(None, vae_encoder_out, text_encoder_output)
 
     @ProfilingContext4DebugL2("Run Text Encoder")
     def _run_input_encoder_local_animate(self):
         text_encoder_output = self.run_text_encoder(self.input_info)
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()
         return self.get_encoder_output_i2v(None, None, text_encoder_output, None)
 
@@ -366,7 +365,7 @@ class DefaultRunner(BaseRunner):
             with ProfilingContext4DebugL1(
                 f"segment end2end {segment_idx + 1}/{self.video_segment_num}",
                 recorder_mode=GET_RECORDER_MODE(),
-                metrics_func=get_monitor_cli().lightx2v_run_segments_end2end_duration,
+                metrics_func=monitor_cli.lightx2v_run_segments_end2end_duration,
                 metrics_labels=["DefaultRunner"],
             ):
                 self.check_stop()
@@ -389,18 +388,18 @@ class DefaultRunner(BaseRunner):
         self.end_run()
         return gen_video_final
 
-    @ProfilingContext4DebugL1("Run VAE Decoder", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
+    @ProfilingContext4DebugL1("Run VAE Decoder", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
     def run_vae_decoder(self, latents):
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             self.vae_decoder = self.load_vae_decoder()
         images = self.vae_decoder.decode(latents.to(GET_DTYPE()))
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             del self.vae_decoder
-            torch.cuda.empty_cache()
+            torch_device_module.empty_cache()
             gc.collect()
         return images
 
-    @ProfilingContext4DebugL1("Run VAE Decoder Stream", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
+    @ProfilingContext4DebugL1("Run VAE Decoder Stream", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_run_vae_decode_duration, metrics_labels=["DefaultRunner"])
     def run_vae_decoder_stream(self, latents):
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             self.vae_decoder = self.load_vae_decoder()
@@ -410,7 +409,7 @@ class DefaultRunner(BaseRunner):
 
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             del self.vae_decoder
-            torch.cuda.empty_cache()
+            torch_device_module.empty_cache()
             gc.collect()
 
     def post_prompt_enhancer(self):
@@ -453,20 +452,14 @@ class DefaultRunner(BaseRunner):
             if not dist.is_initialized() or dist.get_rank() == 0:
                 logger.info(f"🎬 Start to save video 🎬")
 
-                try:
-                    save_to_video(self.gen_video_final, self.input_info.save_result_path, fps=fps, method="ffmpeg")
-                    logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} ✅")
-                except Exception as e:
-                    logger.warning(f"⚠️  FFmpeg failed to save video: {e}")
-                    logger.info("🔄 Falling back to imageio method...")
-                    save_to_video(self.gen_video_final, self.input_info.save_result_path, fps=fps, method="imageio")
-                    logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} using imageio ✅")
+                save_to_video(self.gen_video_final, self.input_info.save_result_path, fps=fps, method="ffmpeg")
+                logger.info(f"✅ Video saved successfully to: {self.input_info.save_result_path} ✅")
             return {"video": None}
 
-    @ProfilingContext4DebugL1("RUN pipeline", recorder_mode=GET_RECORDER_MODE(), metrics_func=get_monitor_cli().lightx2v_worker_request_duration, metrics_labels=["DefaultRunner"])
+    @ProfilingContext4DebugL1("RUN pipeline", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_worker_request_duration, metrics_labels=["DefaultRunner"])
     def run_pipeline(self, input_info):
         if GET_RECORDER_MODE():
-            get_monitor_cli().lightx2v_worker_request_count.inc()
+            monitor_cli.lightx2v_worker_request_count.inc()
         self.input_info = input_info
 
         if self.config["use_prompt_enhancer"]:
@@ -477,7 +470,7 @@ class DefaultRunner(BaseRunner):
         gen_video_final = self.run_main()
 
         if GET_RECORDER_MODE():
-            get_monitor_cli().lightx2v_worker_request_success.inc()
+            monitor_cli.lightx2v_worker_request_success.inc()
         return gen_video_final
 
     def __del__(self):
@@ -491,5 +484,5 @@ class DefaultRunner(BaseRunner):
             del self.vae_encoder
         if hasattr(self, "vae_decoder"):
             del self.vae_decoder
-        torch.cuda.empty_cache()
+        torch_device_module.empty_cache()
         gc.collect()

@@ -87,28 +87,6 @@ def model_worker_process(task_queue, result_queue):
                         del msg.params['lora_configs']
                     # 执行推理
                     if hasattr(model_pipeline, 'infer'):
-                        # 动态加载/切换LoRA
-                        if hasattr(model_pipeline, 'switch_lora'):
-                            if lora_configs:
-                                # 加载新的LoRA
-                                for lora_cfg in lora_configs:
-                                    lora_path = lora_cfg.get('path')
-                                    strength = lora_cfg.get('strength', 1.0)
-                                    if lora_path:
-                                        try:
-                                            model_pipeline.switch_lora(lora_path, strength)
-                                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
-                                        except Exception as e:
-                                            logger.error(f"加载LoRA失败: {e}")
-                            else:
-                                # 没有提交LoRA，卸载历史LoRA
-                                if hasattr(model_pipeline, 'remove_lora'):
-                                    try:
-                                        model_pipeline.remove_lora()
-                                        logger.info("已卸载历史LoRA")
-                                    except Exception as e:
-                                        logger.error(f"卸载LoRA失败: {e}")
-                        
                         result = model_pipeline.infer(**msg.params)
                     else:
                         # 卸载历史LoRA
@@ -312,7 +290,7 @@ def _load_wan_t2v_model_worker(params):
     
     try:
         logging.info("开始导入 utils.wan")
-        from utils.wan import WanPipeRunner
+        from utils.wan import WanModelPipeRunner
         logging.info("utils.wan 导入成功")
     except Exception as e:
         logging.error(f"导入 utils.wan 失败: {e}")
@@ -327,13 +305,13 @@ def _load_wan_t2v_model_worker(params):
     logging.info(f"模型加载参数: model_path={model_path}, model_config_path={model_config_path}, model_cls={model_cls}")
     
     try:
-        pipe = WanPipeRunner(
+        pipe = WanModelPipeRunner(
             model_path=model_path,
             config_json_path=model_config_path,
             model_cls=model_cls,
             task="t2v"
         )
-        logging.info("WanPipeRunner 初始化成功")
+        logging.info("WanModelPipeRunner 初始化成功")
         
         logging.info("开始加载模型...")
         pipe.load()
@@ -347,13 +325,13 @@ def _load_wan_t2v_model_worker(params):
 
 def _load_wan_i2v_model_worker(params):
     """工作进程内部加载wan图生视频模型"""
-    from utils.wan import WanPipeRunner
+    from utils.wan import WanModelPipeRunner
     
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Wan2.2-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
     model_cls = params.get('model_cls', "wan2.2_moe")
     
-    pipe = WanPipeRunner(
+    pipe = WanModelPipeRunner(
         model_path=model_path,
         config_json_path=model_config_path,
         model_cls=model_cls,

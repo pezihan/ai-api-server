@@ -273,40 +273,26 @@ def save_to_video(
             command,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
         )
 
         if process.stdin is None:
             raise BrokenPipeError("No stdin buffer received.")
 
-        try:
-            # Write frames to FFmpeg
-            for frame in frames:
-                # Pad frame if needed
-                if frame.shape[0] < height or frame.shape[1] < width:
-                    padded = np.zeros((height, width, 3), dtype=np.uint8)
-                    padded[: frame.shape[0], : frame.shape[1]] = frame
-                    frame = padded
-                # Ensure frame has correct dimensions
-                assert frame.shape == (height, width, 3), f"Frame shape {frame.shape} does not match expected shape {(height, width, 3)}"
-                process.stdin.write(frame.tobytes())
-                process.stdin.flush()  # Flush buffer to avoid pipe overflow
-        except BrokenPipeError as e:
-            # Read FFmpeg error output to understand why it crashed
+        # Write frames to FFmpeg
+        for frame in frames:
+            # Pad frame if needed
+            if frame.shape[0] < height or frame.shape[1] < width:
+                padded = np.zeros((height, width, 3), dtype=np.uint8)
+                padded[: frame.shape[0], : frame.shape[1]] = frame
+                frame = padded
+            process.stdin.write(frame.tobytes())
+
+        process.stdin.close()
+        process.wait()
+
+        if process.returncode != 0:
             error_output = process.stderr.read().decode() if process.stderr else "Unknown error"
-            raise RuntimeError(f"FFmpeg crashed with error: {error_output}\nOriginal error: {e}")
-        finally:
-            if process.stdin:
-                process.stdin.close()
-
-        # Wait for FFmpeg to finish and get output
-        stdout_output, stderr_output = process.communicate()
-        returncode = process.returncode
-
-        if returncode != 0:
-            error_msg = stderr_output.decode() if stderr_output else "Unknown error"
-            stdout_msg = stdout_output.decode() if stdout_output else ""
-            raise RuntimeError(f"FFmpeg failed with return code {returncode}\nStderr: {error_msg}\nStdout: {stdout_msg}")
+            raise RuntimeError(f"FFmpeg failed with error: {error_output}")
 
     else:
         raise ValueError(f"Unknown save method: {method}")
@@ -585,3 +571,67 @@ def fixed_shape_resize(img, target_height, target_width):
 
     h, w = resized_img.shape[-2:]
     return resized_img, h, w
+
+
+def check_path_exists(path: str) -> None:
+    """
+    Check if a file path exists and raise an error if it doesn't.
+
+    Args:
+        path: The file path to check
+
+    Raises:
+        FileNotFoundError: If the path is not empty and the file does not exist
+    """
+    if path and not path.startswith(("http://", "https://", "data:")):
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File does not exist: {path}")
+
+
+def validate_task_arguments(args: "argparse.Namespace") -> None:
+    """
+    Validate arguments based on the task type.
+
+    Args:
+        args: Parsed arguments from argparse
+
+    Raises:
+        AssertionError: If required arguments are missing or invalid for the task
+    """
+    task = args.task
+
+    # Define required file paths for each task
+    task_requirements = {
+        "i2i": {"required_paths": ["image_path"], "description": "Image-to-Image task requires --image_path"},
+        "i2v": {"required_paths": ["image_path"], "description": "Image-to-Video task requires --image_path"},
+        "flf2v": {"required_paths": ["image_path", "last_frame_path"], "description": "First-Last-Frame-to-Video task requires --image_path and --last_frame_path"},
+        "s2v": {"required_paths": ["image_path", "audio_path"], "description": "Speech-to-Video task requires --image_path and --audio_path"},
+        "vace": {"required_paths": ["src_video"], "description": "Video Appearance Change Editing task requires --src_video"},
+        "animate": {"required_paths": ["image_path"], "description": "Animate task requires --image_path"},
+        "t2v": {"required_paths": [], "description": "Text-to-Video task"},
+        "t2i": {"required_paths": [], "description": "Text-to-Image task"},
+    }
+
+    if task not in task_requirements:
+        logger.warning(f"Unknown task type: {task}, skipping validation")
+        return
+
+    requirements = task_requirements[task]
+
+    # Check required paths
+    for path_arg in requirements["required_paths"]:
+        path_value = getattr(args, path_arg, "")
+
+        # Check if path is provided
+        if not path_value:
+            raise ValueError(f"{requirements['description']}: --{path_arg} cannot be empty")
+
+        # For comma-separated paths (like i2i with multiple images)
+        if "," in path_value:
+            paths = [p.strip() for p in path_value.split(",")]
+            for path in paths:
+                check_path_exists(path)
+        else:
+            check_path_exists(path_value)
+
+    logger.info(f"✓ Task '{task}' arguments validated successfully")
