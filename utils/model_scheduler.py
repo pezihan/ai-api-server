@@ -17,10 +17,9 @@ class ModelLoraConfig(TypedDict):
     strength: Optional[float | int] | None
 
 class LoraConfig(TypedDict):
-    id: int
     name: str
-    high_noise_model: ModelLoraConfig
-    low_noise_model: ModelLoraConfig
+    high_noise_model: ModelLoraConfig | None
+    low_noise_model: ModelLoraConfig | None
     path: str | None
     strength: Optional[float] | None
 

@@ -3,7 +3,7 @@ from flask_restx import Namespace, Resource, fields
 from utils.task_manager import task_manager
 from utils.logger import logger
 from middlewares.auth import auth_required
-from utils.lora_utils import validate_lora_ids, validate_lora_files
+from utils.lora_utils import validate_lora_names, validate_lora_files
 
 # 创建命名空间
 video_ns = Namespace('video', description='视频生成接口')
@@ -17,7 +17,7 @@ text2video_model = video_ns.model('Text2VideoRequest', {
     'width': fields.Integer(required=False, default=544, description='视频宽度'),
     'height': fields.Integer(required=False, default=960, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数'),
-    'lora_ids': fields.List(fields.Integer, required=False, description='LoRA模型ID列表')
+    'lora_names': fields.List(fields.String, required=False, description='LoRA模型名称列表')
 })
 
 img2video_model = video_ns.model('Img2VideoRequest', {
@@ -29,7 +29,7 @@ img2video_model = video_ns.model('Img2VideoRequest', {
     'width': fields.Integer(required=False, default=544, description='视频宽度'),
     'height': fields.Integer(required=False, default=960, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数'),
-    'lora_ids': fields.List(fields.Integer, required=False, description='LoRA模型ID列表')
+    'lora_names': fields.List(fields.String, required=False, description='LoRA模型名称列表')
 })
 
 @video_ns.route('/text2video')
@@ -55,16 +55,16 @@ class Text2Video(Resource):
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200
             
-            # 校验lora_ids
-            lora_ids = data.get('lora_ids', [])
-            if lora_ids:
-                # 校验lora_id是否存在于配置文件中
-                valid, msg = validate_lora_ids('text2video', lora_ids)
+            # 校验lora_names
+            lora_names = data.get('lora_names', [])
+            if lora_names:
+                # 校验lora_name是否存在
+                valid, msg = validate_lora_names('text2video', lora_names)
                 if not valid:
                     return {'code': 400, 'msg': msg, 'data': None}, 200
                 
                 # 校验lora文件是否存在
-                valid, msg = validate_lora_files('text2video', lora_ids)
+                valid, msg = validate_lora_files('text2video', lora_names)
                 if not valid:
                     return {'code': 400, 'msg': msg, 'data': None}, 200
             
@@ -77,7 +77,7 @@ class Text2Video(Resource):
                 'width': width,
                 'height': height,
                 'num_frames': num_frames,
-                'lora_ids': lora_ids
+                'lora_names': lora_names
             }
             
             task_id = task_manager.create_task('text2video', task_params)
@@ -117,16 +117,16 @@ class Img2Video(Resource):
             if not image_path:
                 return {'code': 400, 'msg': '缺少图片路径参数', 'data': None}, 200
             
-            # 校验lora_ids
-            lora_ids = data.get('lora_ids', [])
-            if lora_ids:
-                # 校验lora_id是否存在于配置文件中
-                valid, msg = validate_lora_ids('img2video', lora_ids)
+            # 校验lora_names
+            lora_names = data.get('lora_names', [])
+            if lora_names:
+                # 校验lora_name是否存在
+                valid, msg = validate_lora_names('img2video', lora_names)
                 if not valid:
                     return {'code': 400, 'msg': msg, 'data': None}, 200
                 
                 # 校验lora文件是否存在
-                valid, msg = validate_lora_files('img2video', lora_ids)
+                valid, msg = validate_lora_files('img2video', lora_names)
                 if not valid:
                     return {'code': 400, 'msg': msg, 'data': None}, 200
             
@@ -140,7 +140,7 @@ class Img2Video(Resource):
                 # 'width': width, // 传入之后没效果,会保持图片的分辨率比例
                 # 'height': height,
                 'num_frames': num_frames,
-                'lora_ids': lora_ids
+                'lora_names': lora_names
             }
             
             task_id = task_manager.create_task('img2video', task_params)

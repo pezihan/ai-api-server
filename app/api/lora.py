@@ -1,10 +1,7 @@
-from flask import request
-from flask_restx import Namespace, Resource, fields
+from flask_restx import Namespace, Resource
 from utils.logger import logger
 from middlewares.auth import auth_required
-import os
-import json
-from config.config import config
+from utils.lora_utils import load_lora_config
 
 # 创建命名空间
 lora_ns = Namespace('lora', description='LoRA配置接口')
@@ -16,17 +13,11 @@ class LoraConfig(Resource):
     def get(self):
         """
         获取LoRA配置
-        返回lora_config.json的内容，按任务类型组织的LoRA模型配置
+        从LORA_DIR目录读取配置，按任务类型组织的LoRA模型配置
         """
         try:
-            config_path = os.path.join(config.CONFIG_DIR, 'lora_config.json')
-            if not os.path.exists(config_path):
-                logger.warning(f"LoRA配置文件不存在: {config_path}")
-                return {'code': 404, 'msg': 'LoRA配置文件不存在', 'data': None}, 200
-            
-            # 加载并返回配置文件内容
-            with open(config_path, 'r', encoding='utf-8') as f:
-                lora_config = json.load(f)
+            # 直接调用lora_utils.py中的函数获取配置
+            lora_config = load_lora_config()
             
             return {
                 'code': 200,

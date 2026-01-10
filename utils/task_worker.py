@@ -22,18 +22,18 @@ class TaskWorker:
         self.worker_thread = None  # 工作线程
         self.worker_event = threading.Event()  # 工作线程事件，用于通知有新消息
     
-    def _get_lora_configs(self, task_type, lora_ids):
+    def _get_lora_configs(self, task_type, lora_names):
         """
-        根据任务类型和lora ids获取对应的lora配置
+        根据任务类型和lora names获取对应的lora配置
         
         Args:
             task_type: str, 任务类型
-            lora_ids: list, lora id列表
+            lora_names: list, lora name列表
             
         Returns:
             list: lora配置列表
         """
-        return get_lora_configs(task_type, lora_ids)
+        return get_lora_configs(task_type, lora_names)
     
     def start(self):
         """启动任务工作器"""
@@ -225,10 +225,10 @@ class TaskWorker:
         guidance_scale = task_params.get('guidance_scale', 5.0)
         width = task_params.get('width', 512)
         height = task_params.get('height', 512)
-        lora_ids = task_params.get('lora_ids', [])
+        lora_names = task_params.get('lora_names', [])
         
         # 处理LoRA配置
-        lora_configs = self._get_lora_configs(task_type, lora_ids)    
+        lora_configs = self._get_lora_configs(task_type, lora_names)    
 
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
@@ -309,10 +309,10 @@ class TaskWorker:
         width = task_params.get('width', 544)
         height = task_params.get('height', 960)
         num_frames = task_params.get('num_frames', 81)
-        lora_ids = task_params.get('lora_ids', [])
+        lora_names = task_params.get('lora_names', [])
         
         # 处理LoRA配置
-        lora_configs = self._get_lora_configs(task_type, lora_ids)
+        lora_configs = self._get_lora_configs(task_type, lora_names)
         # 加载wan模型
         pipe = model_scheduler.load_model(task_type=task_type, lora_configs=lora_configs)
  
