@@ -311,11 +311,10 @@ class TaskWorker:
         num_frames = task_params.get('num_frames', 81)
         lora_ids = task_params.get('lora_ids', [])
         
-        # 加载wan模型
-        pipe = model_scheduler.load_model(task_type=task_type)
-        
         # 处理LoRA配置
         lora_configs = self._get_lora_configs(task_type, lora_ids)
+        # 加载wan模型
+        pipe = model_scheduler.load_model(task_type=task_type)
  
         # 生成唯一的输出路径
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-videos")
@@ -332,8 +331,7 @@ class TaskWorker:
                 target_width=width,
                 target_height=height,
                 target_video_length=num_frames,
-                infer_steps=steps,
-                lora_configs=lora_configs
+                infer_steps=steps
             )
         elif task_type == 'img2video':
             # 图生视频
@@ -352,8 +350,7 @@ class TaskWorker:
                 target_width=width,
                 target_height=height,
                 target_video_length=num_frames,
-                infer_steps=steps,
-                lora_configs=lora_configs
+                infer_steps=steps
             )
         
         # 生成视频封面（截取第一帧）
