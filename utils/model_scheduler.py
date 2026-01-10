@@ -645,50 +645,39 @@ class ModelScheduler:
             self.unload_model()
         
         # 加载新模型
-        max_retries = 2
-        for retry in range(max_retries):
-            try:
-                # 创建模型工作进程（如果尚未创建）
-                if self.model_process is None or not self.model_process.is_alive():
-                    self._create_model_process()
+        try:
+            # 创建模型工作进程（如果尚未创建）
+            if self.model_process is None or not self.model_process.is_alive():
+                self._create_model_process()
+            
+            # 将lora_configs添加到params中
+            kwargs_with_lora = kwargs.copy()
+            if lora_configs:
+                kwargs_with_lora['lora_configs'] = lora_configs
+            
+            # 发送加载模型消息
+            msg = ModelMessage('load', task_type, params=kwargs_with_lora)
+            # 加载lora非常费时间，增加额外的超时时间
+            lora_load_time = (len(lora_configs) * (6 * 60))
+            if task_type == 'img2video':
+                lora_load_time = lora_load_time * 2
+            basics_time = 60 * 6
+            result_msg = self._send_message(msg, timeout=lora_load_time+basics_time)  # 增加超时时间
+            
+            if result_msg.msg_type == 'error':
+                raise RuntimeError(f"模型加载失败: {result_msg.error}")
+            
+            self.current_task = task_type
+            self.model_params = kwargs
+            self.current_lora_configs = lora_configs
+            logger.info(f"模型 (任务: {self.current_task}, LoRA配置: {self.current_lora_configs}) 加载成功")
+            return self._get_inference_func()
                 
-                # 将lora_configs添加到params中
-                kwargs_with_lora = kwargs.copy()
-                if lora_configs:
-                    kwargs_with_lora['lora_configs'] = lora_configs
+        except RuntimeError as e:
+            logger.exception(f"加载模型失败: {e}")
+            self._terminate_model_process()
+            raise e
                 
-                # 发送加载模型消息
-                msg = ModelMessage('load', task_type, params=kwargs_with_lora)
-                # 加载lora非常费时间，增加额外的超时时间
-                lora_load_time = (len(lora_configs) * (6 * 60))
-                if task_type == 'img2video':
-                    lora_load_time = lora_load_time * 2
-                basics_time = 60 * 6
-                result_msg = self._send_message(msg, timeout=lora_load_time+basics_time)  # 增加超时时间
-                
-                if result_msg.msg_type == 'error':
-                    raise RuntimeError(f"模型加载失败: {result_msg.error}")
-                
-                self.current_task = task_type
-                self.model_params = kwargs
-                self.current_lora_configs = lora_configs
-                logger.info(f"模型 (任务: {self.current_task}, LoRA配置: {self.current_lora_configs}) 加载成功")
-                return self._get_inference_func()
-                
-            except RuntimeError as e:
-                if "模型工作进程已意外退出" in str(e) and retry < max_retries - 1:
-                    logger.warning(f"模型工作进程意外退出，正在重启并尝试重新加载模型 (尝试 {retry + 1}/{max_retries})")
-                    self._terminate_model_process()
-                    # 清理状态
-                    self.current_task = None
-                    self.model_params = {}
-                    self.current_lora_configs = None
-                    # 继续循环，尝试重新加载
-                    continue
-                else:
-                    logger.exception(f"加载模型失败: {e}")
-                    self._terminate_model_process()
-                    raise  # 重新抛出异常，确保调用者知道模型加载失败
     
     def _get_inference_func(self):
         """获取模型推理函数"""
