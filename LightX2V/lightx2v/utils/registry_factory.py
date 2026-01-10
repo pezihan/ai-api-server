@@ -20,7 +20,7 @@ class Register(dict):
             key = target.__name__
 
         if key in self._dict:
-            raise Exception(f"{key} already exists.")
+            return self._dict[key]
 
         self[key] = target
         return target
@@ -51,9 +51,8 @@ class Register(dict):
 
     def merge(self, other_register):
         for key, value in other_register.items():
-            if key in self._dict:
-                raise Exception(f"{key} already exists in target register.")
-            self[key] = value
+            if key not in self._dict:
+                self[key] = value
 
 
 MM_WEIGHT_REGISTER = Register()

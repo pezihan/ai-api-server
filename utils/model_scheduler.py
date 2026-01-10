@@ -329,7 +329,7 @@ def _load_wan_i2v_model_worker(params):
     
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Wan2.2-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
-    model_cls = params.get('model_cls', "wan2.2_moe")
+    model_cls = params.get('model_cls', "wan2.2_moe_distill")
     
     pipe = WanModelPipeRunner(
         model_path=model_path,
