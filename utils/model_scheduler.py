@@ -1,6 +1,5 @@
 import os
 import gc
-import traceback
 import multiprocessing as mp
 import time
 from typing import Optional, TypedDict, List
