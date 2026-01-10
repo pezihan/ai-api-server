@@ -578,7 +578,7 @@ class ModelScheduler:
             else:
                 if self.current_lora_configs is not None and len(lora_configs) == len(self.current_lora_configs):
                     lora_configs_match = all(
-                        cfg1.path == cfg2.path and cfg1.strength == cfg2.strength
+                        cfg1.get('path') == cfg2.get('path') and cfg1.get('strength') == cfg2.get('strength')
                         for cfg1, cfg2 in zip(lora_configs, self.current_lora_configs)
                     )
             
