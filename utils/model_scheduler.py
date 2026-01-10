@@ -149,6 +149,7 @@ def model_worker_process(task_queue, result_queue):
                     if 'lora_configs' in msg.params:
                         del msg.params['lora_configs']
                     formatted_lora_configs = _format_lora_configs(lora_configs)
+                    logger.info(f"导入模型lora配置: {formatted_lora_configs}")
                     # 执行推理
                     if hasattr(model_pipeline, 'infer'):
                         result = model_pipeline.infer(**msg.params)
@@ -373,7 +374,7 @@ def _load_wan_t2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] 
     try:
         # 格式化lora_configs
         formatted_lora_configs = _format_lora_configs(lora_configs)
-        
+        logger.info(f"导入模型lora配置: {formatted_lora_configs}")
         pipe = WanModelPipeRunner(
             model_path=model_path,
             config_json_path=model_config_path,
@@ -403,7 +404,8 @@ def _load_wan_i2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] 
     
     # 格式化lora_configs
     formatted_lora_configs = _format_lora_configs(lora_configs)
-    
+    logger.info(f"导入模型lora配置: {formatted_lora_configs}")
+    logger.info(f"导入模型lora配置: {formatted_lora_configs}")
     pipe = WanModelPipeRunner(
         model_path=model_path,
         config_json_path=model_config_path,
