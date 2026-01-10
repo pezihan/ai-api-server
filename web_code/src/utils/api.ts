@@ -208,10 +208,8 @@ export const getApiBaseUrl = (): string => {
  * LoRA配置类型
  */
 export interface LoraConfig {
-  id: number;
   name: string;
   path: string;
-  strength: number | null;
 }
 
 /**

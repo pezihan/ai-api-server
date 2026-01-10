@@ -36,7 +36,7 @@ const generationMessage = ref('');
 
 // LoRA配置
 const loraConfig = ref<LoraConfigResponse | null>(null);
-const selectedLoraIds = ref<number[]>([]);
+const selectedLoraNames = ref<string[]>([]);
 const isLoadingLora = ref(false);
 const loraError = ref('');
 
@@ -64,7 +64,7 @@ const aspectRatioMap = {
 
 // 监听生成模式变化，自动更新生成类型
 watch(generateMode, (newMode) => {
-  selectedLoraIds.value = [];
+  selectedLoraNames.value = [];
   const selectedType = generateTypes.find(type => type.value === newMode);
   if (selectedType) {
     generateType.value = selectedType.type;
@@ -122,7 +122,7 @@ const submitGeneration = async () => {
           seed: formData.seed,
           width: formData.width,
           height: formData.height,
-          lora_ids: selectedLoraIds.value
+          lora_names: selectedLoraNames.value
         };
 
       // 发送请求
@@ -159,15 +159,15 @@ const submitGeneration = async () => {
       }
 
       // 准备图生图请求数据
-      const requestData = {
-        prompt: formData.prompt,
-        negative_prompt: formData.negative_prompt,
-        seed: formData.seed,
-        width: formData.width,
-        height: formData.height,
-        image_path: uploadResponse.data.file_path,
-        lora_ids: selectedLoraIds.value
-      };
+        const requestData = {
+          prompt: formData.prompt,
+          negative_prompt: formData.negative_prompt,
+          seed: formData.seed,
+          width: formData.width,
+          height: formData.height,
+          image_path: uploadResponse.data.file_path,
+          lora_names: selectedLoraNames.value
+        };
 
       // 发送图生图请求
       const response = await post<{ task_id: string }>('/image/img2img', requestData);
@@ -192,7 +192,7 @@ const submitGeneration = async () => {
           width: formData.width,
           height: formData.height,
           num_frames: formData.num_frames,
-          lora_ids: selectedLoraIds.value
+          lora_names: selectedLoraNames.value
         };
 
       // 发送请求
@@ -229,16 +229,16 @@ const submitGeneration = async () => {
       }
 
       // 准备图生视频请求数据
-      const requestData = {
-        prompt: formData.prompt,
-        negative_prompt: formData.negative_prompt,
-        seed: formData.seed,
-        width: formData.width,
-        height: formData.height,
-        num_frames: formData.num_frames,
-        image_path: uploadResponse.data.file_path,
-        lora_ids: selectedLoraIds.value
-      };
+        const requestData = {
+          prompt: formData.prompt,
+          negative_prompt: formData.negative_prompt,
+          seed: formData.seed,
+          width: formData.width,
+          height: formData.height,
+          num_frames: formData.num_frames,
+          image_path: uploadResponse.data.file_path,
+          lora_names: selectedLoraNames.value
+        };
 
       // 发送图生视频请求
       const response = await post<{ task_id: string }>('/video/img2video', requestData);
@@ -468,22 +468,19 @@ const regenerate = () => {
           <div v-else-if="currentLoraList.length > 0" class="lora-list">
             <div
               v-for="lora in currentLoraList"
-              :key="lora.id"
+              :key="lora.name"
               class="lora-item"
             >
               <label class="lora-checkbox">
                 <input
                   type="checkbox"
-                  :value="lora.id"
-                  v-model="selectedLoraIds"
+                  :value="lora.name"
+                  v-model="selectedLoraNames"
                   :disabled="isGenerating"
                 />
                 <span class="checkbox-custom"></span>
                 <div class="lora-info">
                   <span class="lora-name">{{ lora.name }}</span>
-                  <span v-if="lora.strength !== null" class="lora-strength">
-                    强度: {{ lora.strength }}
-                  </span>
                 </div>
               </label>
             </div>
