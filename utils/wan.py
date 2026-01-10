@@ -13,11 +13,15 @@ lightx2v_root = os.path.join(project_root, 'LightX2V')
 sys.path.insert(0, lightx2v_root)
 logging.info(f"Added LightX2V root to path: {lightx2v_root}")
 
+# 先导入基础模块
 import torch
 import torch.distributed as dist
 from loguru import logger
 
-from lightx2v.common.ops import *
+# 移除对lightx2v.common.ops的直接导入，因为它可能导致导入时卡住
+# 该模块会在实际需要时由具体的模型代码导入
+
+# 导入其他模块
 from lightx2v.utils.registry_factory import RUNNER_REGISTER
 from lightx2v.models.runners.qwen_image.qwen_image_runner import QwenImageRunner  # noqa: F401
 from lightx2v.models.runners.wan.wan_animate_runner import WanAnimateRunner  # noqa: F401

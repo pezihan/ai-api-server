@@ -396,24 +396,47 @@ def _load_wan_t2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] 
 
 def _load_wan_i2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] = None):
     """工作进程内部加载wan图生视频模型"""
-    from utils.wan import WanModelPipeRunner
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
+    try:
+        logging.info("开始导入 utils.wan")
+        from utils.wan import WanModelPipeRunner
+        logging.info("utils.wan 导入成功")
+    except Exception as e:
+        logging.error(f"导入 utils.wan 失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Wan2.2-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
     model_cls = params.get('model_cls', "wan2.2_moe_distill")
     
-    # 格式化lora_configs
-    formatted_lora_configs = _format_lora_configs(lora_configs)
-    logger.info(f"导入模型lora配置: {formatted_lora_configs}")
-    pipe = WanModelPipeRunner(
-        model_path=model_path,
-        config_json_path=model_config_path,
-        model_cls=model_cls,
-        task="i2v",
-        lora_configs=formatted_lora_configs
-    )
-    pipe.load()
-    return pipe
+    logging.info(f"模型加载参数: model_path={model_path}, model_config_path={model_config_path}, model_cls={model_cls}")
+    
+    try:
+        # 格式化lora_configs
+        formatted_lora_configs = _format_lora_configs(lora_configs)
+        logger.info(f"导入模型lora配置: {formatted_lora_configs}")
+        pipe = WanModelPipeRunner(
+            model_path=model_path,
+            config_json_path=model_config_path,
+            model_cls=model_cls,
+            task="i2v",
+            lora_configs=formatted_lora_configs
+        )
+        logging.info("WanModelPipeRunner 初始化成功")
+        
+        logging.info("开始加载模型...")
+        pipe.load()
+        logging.info("模型加载成功")
+        return pipe
+    except Exception as e:
+        logging.error(f"模型加载失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def _is_cpu_offload_enabled_image_worker() -> bool:
     import torch
