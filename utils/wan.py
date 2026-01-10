@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 from argparse import Namespace
 import logging
+from typing import Optional, TypedDict
 logging.basicConfig(level=logging.INFO)
 import sys
 
@@ -34,8 +35,11 @@ from lightx2v.utils.set_config import print_config, set_config, set_parallel_con
 from lightx2v.utils.utils import seed_all
 from lightx2v.utils.lockable_dict import LockableDict
 
+class LoraConfig(TypedDict):
+    path: str
+    strength: Optional[float]
 class WanModelPipeRunner:
-  def __init__(self, model_path: os.PathLike, config_json_path: os.PathLike, model_cls: str, task: str):
+  def __init__(self, model_path: os.PathLike, config_json_path: os.PathLike, model_cls: str, task: str, lora_configs: Optional[list[LoraConfig]] = None):
     self.model_cls = model_cls
     self.task = task
     self.model_path = str(Path(model_path).absolute())
@@ -44,6 +48,7 @@ class WanModelPipeRunner:
     self.negative_prompt = "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
     self.runner: DefaultRunner = None
     self.config: LockableDict = None
+    self.lora_configs: Optional[list[LoraConfig]] = lora_configs
 
   def load(self):
     args = Namespace(
@@ -52,6 +57,7 @@ class WanModelPipeRunner:
       model_path=self.model_path,
       config_json=self.config_json,
       use_prompt_enhancer=self.use_prompt_enhancer,
+      lora_configs=self.lora_configs
     )
     self.config: LockableDict = set_config(args)
 

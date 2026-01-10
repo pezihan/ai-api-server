@@ -314,7 +314,7 @@ class TaskWorker:
         # 处理LoRA配置
         lora_configs = self._get_lora_configs(task_type, lora_ids)
         # 加载wan模型
-        pipe = model_scheduler.load_model(task_type=task_type)
+        pipe = model_scheduler.load_model(task_type=task_type, lora_configs=lora_configs)
  
         # 生成唯一的输出路径
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-videos")
