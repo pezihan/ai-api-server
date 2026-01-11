@@ -123,8 +123,8 @@ def validate_lora_files(task_type, lora_names):
 def get_config_key(task_type):
     return task_type_map.get(task_type)
 
-# 根据任务类型和LoRA名称获取LoRA配置
-def get_lora_configs(task_type, lora_names):
+# 根据任务类型和LoRA对象获取LoRA配置
+def get_lora_configs(task_type, loras):
     lora_config = load_lora_config()
     config_key = get_config_key(task_type)
     if not config_key:
@@ -132,10 +132,17 @@ def get_lora_configs(task_type, lora_names):
     
     lora_configs = lora_config.get(config_key, [])
     result = []
-    for cfg in lora_configs:
-        if cfg.get('name') in lora_names:
+    # 创建名称到配置的映射
+    lora_dict = {cfg.get('name'): cfg for cfg in lora_configs}
+    
+    for lora in loras:
+        lora_name = lora.get('name')
+        lora_strength = lora.get('strength', 1.0)
+        if lora_name in lora_dict:
             # 复制配置并拼接完整路径
-            config_copy = cfg.copy()
+            config_copy = lora_dict[lora_name].copy()
+            # 添加强度信息
+            config_copy['strength'] = lora_strength
             if 'path' in config_copy:
                 config_copy['path'] = os.path.join(config.LORA_DIR, config_copy['path'])
             

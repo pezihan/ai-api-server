@@ -8,6 +8,12 @@ from utils.lora_utils import validate_lora_names, validate_lora_files
 # 创建命名空间
 image_ns = Namespace('image', description='图片生成接口')
 
+# 定义LoRA模型结构
+lora_model = image_ns.model('LoraModel', {
+    'name': fields.String(required=True, description='LoRA模型名称'),
+    'strength': fields.Float(required=False, default=1.0, description='LoRA模型强度')
+})
+
 # 定义请求模型
 text2img_model = image_ns.model('Text2ImgRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
@@ -17,7 +23,7 @@ text2img_model = image_ns.model('Text2ImgRequest', {
     'width': fields.Integer(required=False, default=544, description='图片宽度'),
     'height': fields.Integer(required=False, default=544, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子'),
-    'lora_names': fields.List(fields.String, required=False, description='LoRA模型名称列表')
+    'loras': fields.List(fields.Nested(lora_model), required=False, description='LoRA模型列表')
 })
 
 img2img_model = image_ns.model('Img2ImgRequest', {
@@ -29,7 +35,7 @@ img2img_model = image_ns.model('Img2ImgRequest', {
     'height': fields.Integer(required=False, default=544, description='图片高度'),
     'guidance_scale': fields.Float(required=False, default=7.5, description='引导缩放因子'),
     'image_path': fields.String(required=True, description='输入图片在服务器上的路径'),
-    'lora_names': fields.List(fields.String, required=False, description='LoRA模型名称列表')
+    'loras': fields.List(fields.Nested(lora_model), required=False, description='LoRA模型列表')
 })
 
 @image_ns.route('/text2img')
@@ -56,8 +62,9 @@ class Text2Img(Resource):
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200
             
-            # 校验lora_names
-            lora_names = data.get('lora_names', [])
+            # 校验loras
+            loras = data.get('loras', [])
+            lora_names = [lora.get('name') for lora in loras]
             if lora_names:
                 # 校验lora_name是否存在
                 valid, msg = validate_lora_names('text2img', lora_names)
@@ -78,7 +85,7 @@ class Text2Img(Resource):
                 'width': width,
                 'height': height,
                 'guidance_scale': guidance_scale,
-                'lora_names': lora_names
+                'loras': loras
             }
             
             task_id = task_manager.create_task('text2img', task_params)
@@ -119,8 +126,9 @@ class Img2Img(Resource):
             if not image_path:
                 return {'code': 400, 'msg': '缺少图片路径参数', 'data': None}, 200
             
-            # 校验lora_names
-            lora_names = data.get('lora_names', [])
+            # 校验loras
+            loras = data.get('loras', [])
+            lora_names = [lora.get('name') for lora in loras]
             if lora_names:
                 # 校验lora_name是否存在
                 valid, msg = validate_lora_names('img2img', lora_names)
@@ -142,7 +150,7 @@ class Img2Img(Resource):
                 'width': width,
                 'height': height,
                 'guidance_scale': guidance_scale,
-                'lora_names': lora_names
+                'loras': loras
             }
             
             task_id = task_manager.create_task('img2img', task_params)

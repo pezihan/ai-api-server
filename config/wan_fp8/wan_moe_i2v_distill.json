@@ -20,6 +20,12 @@
     "use_image_encoder": false,
     "boundary_step_index": 2,
     "boundary": 0.900,
+    "fps": 16,
+    "video_frame_interpolation": {
+        "algo": "rife",
+        "target_fps": 32,
+        "model_path": "./rife_model"
+    },
     "denoising_step_list": [
         1000,
         750,

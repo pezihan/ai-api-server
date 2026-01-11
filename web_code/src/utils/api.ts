@@ -213,6 +213,14 @@ export interface LoraConfig {
 }
 
 /**
+ * LoRA参数类型（用于请求）
+ */
+export interface LoraParam {
+  name: string;
+  strength: number;
+}
+
+/**
  * LoRA配置响应类型
  */
 export interface LoraConfigResponse {

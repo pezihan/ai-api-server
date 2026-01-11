@@ -23,6 +23,7 @@ const formData = reactive({
   width: 544,
   height: 960,
   num_frames: 81,
+  video_duration: 5, // 视频时长（秒）
   aspect_ratio: 'vertical' // vertical, horizontal, square
 });
 
@@ -36,7 +37,7 @@ const generationMessage = ref('');
 
 // LoRA配置
 const loraConfig = ref<LoraConfigResponse | null>(null);
-const selectedLoraNames = ref<string[]>([]);
+const selectedLoras = ref<Array<{ name: string; strength: number }>>([]);
 const isLoadingLora = ref(false);
 const loraError = ref('');
 
@@ -64,7 +65,7 @@ const aspectRatioMap = {
 
 // 监听生成模式变化，自动更新生成类型
 watch(generateMode, (newMode) => {
-  selectedLoraNames.value = [];
+  selectedLoras.value = [];
   const selectedType = generateTypes.find(type => type.value === newMode);
   if (selectedType) {
     generateType.value = selectedType.type;
@@ -102,6 +103,23 @@ const changeAspectRatio = (ratio: string) => {
   formData.height = aspectRatioMap[generateType.value as 'image' | 'video'][ratio as 'vertical' | 'horizontal' | 'square'].height;
 };
 
+// 切换视频时长
+const changeVideoDuration = (duration: number) => {
+  formData.video_duration = duration;
+  // 根据时长设置对应帧数
+  switch (duration) {
+    case 5:
+      formData.num_frames = 81;
+      break;
+    case 10:
+      formData.num_frames = 161;
+      break;
+    case 15:
+      formData.num_frames = 241;
+      break;
+  }
+};
+
 // 定义事件
 const emit = defineEmits<{
   (e: 'task-submitted'): void;
@@ -122,7 +140,7 @@ const submitGeneration = async () => {
           seed: formData.seed,
           width: formData.width,
           height: formData.height,
-          lora_names: selectedLoraNames.value
+          loras: selectedLoras.value
         };
 
       // 发送请求
@@ -166,7 +184,7 @@ const submitGeneration = async () => {
           width: formData.width,
           height: formData.height,
           image_path: uploadResponse.data.file_path,
-          lora_names: selectedLoraNames.value
+          loras: selectedLoras.value
         };
 
       // 发送图生图请求
@@ -192,7 +210,7 @@ const submitGeneration = async () => {
           width: formData.width,
           height: formData.height,
           num_frames: formData.num_frames,
-          lora_names: selectedLoraNames.value
+          loras: selectedLoras.value
         };
 
       // 发送请求
@@ -237,7 +255,7 @@ const submitGeneration = async () => {
           height: formData.height,
           num_frames: formData.num_frames,
           image_path: uploadResponse.data.file_path,
-          lora_names: selectedLoraNames.value
+          loras: selectedLoras.value
         };
 
       // 发送图生视频请求
@@ -298,6 +316,39 @@ onMounted(() => {
 const regenerate = () => {
   formData.seed = Math.floor(Math.random() * 1000000);
   submitGeneration();
+};
+
+// 处理LoRA选择切换
+const handleLoraToggle = (loraName: string) => {
+  const existingIndex = selectedLoras.value.findIndex(item => item.name === loraName);
+  if (existingIndex >= 0) {
+    // 如果已存在，则移除
+    selectedLoras.value.splice(existingIndex, 1);
+  } else {
+    // 如果不存在，则添加，默认强度为1.0
+    selectedLoras.value.push({ name: loraName, strength: 1.0 });
+  }
+};
+
+// 检查LoRA是否被选中
+const isLoraSelected = (loraName: string) => {
+  return selectedLoras.value.some(item => item.name === loraName);
+};
+
+// 获取LoRA强度
+const getLoraStrength = (loraName: string) => {
+  const lora = selectedLoras.value.find(item => item.name === loraName);
+  return lora ? lora.strength : 1.0;
+};
+
+// 更新LoRA强度
+const updateLoraStrength = (loraName: string, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const strength = parseFloat(target.value);
+  const lora = selectedLoras.value.find(item => item.name === loraName);
+  if (lora) {
+    lora.strength = strength;
+  }
 };
 </script>
 
@@ -443,6 +494,43 @@ const regenerate = () => {
         </div>
       </div>
 
+      <!-- 视频时长选择（仅视频生成） -->
+      <div class="form-group" v-if="generateType === 'video'">
+        <div class="form-label-container">
+          <label class="form-label">视频时长</label>
+          <span class="label-helper">选择生成视频的时长</span>
+        </div>
+        <div class="duration-buttons">
+          <button
+            class="duration-btn"
+            :class="{ active: formData.video_duration === 5 }"
+            @click="changeVideoDuration(5)"
+            :disabled="isGenerating"
+            :title="`5秒 (81帧)`"
+          >
+            <span>5秒</span>
+          </button>
+          <button
+            class="duration-btn"
+            :class="{ active: formData.video_duration === 10 }"
+            @click="changeVideoDuration(10)"
+            :disabled="isGenerating"
+            :title="`10秒 (161帧)`"
+          >
+            <span>10秒</span>
+          </button>
+          <button
+            class="duration-btn"
+            :class="{ active: formData.video_duration === 15 }"
+            @click="changeVideoDuration(15)"
+            :disabled="isGenerating"
+            :title="`15秒 (241帧)`"
+          >
+            <span>15秒</span>
+          </button>
+        </div>
+      </div>
+
       <!-- LoRA选择 -->
       <div class="form-group">
         <div class="form-label-container">
@@ -475,12 +563,27 @@ const regenerate = () => {
                 <input
                   type="checkbox"
                   :value="lora.name"
-                  v-model="selectedLoraNames"
+                  @change="handleLoraToggle(lora.name)"
+                  :checked="isLoraSelected(lora.name)"
                   :disabled="isGenerating"
                 />
                 <span class="checkbox-custom"></span>
                 <div class="lora-info">
                   <span class="lora-name">{{ lora.name }}</span>
+                  <div class="lora-strength-control" v-if="isLoraSelected(lora.name)">
+                    <label for="strength-{{ lora.name }}">强度:</label>
+                    <input
+                      id="strength-{{ lora.name }}"
+                      type="number"
+                      :value="getLoraStrength(lora.name)"
+                      @input="updateLoraStrength(lora.name, $event)"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      :disabled="isGenerating"
+                      class="strength-input"
+                    />
+                  </div>
                 </div>
               </label>
             </div>
@@ -864,13 +967,48 @@ const regenerate = () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .lora-name {
   font-weight: 600;
   color: var(--text-primary);
   font-size: 14px;
+}
+
+.lora-strength-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lora-strength-control label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.strength-input {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background-color: var(--bg-color);
+  transition: var(--transition);
+}
+
+.strength-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.strength-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--bg-light);
 }
 
 .lora-strength {
@@ -1078,6 +1216,45 @@ const regenerate = () => {
 .aspect-btn.active .aspect-icon {
   background-color: rgba(255, 255, 255, 0.2);
   border-color: white;
+}
+
+/* 视频时长选择 */
+.duration-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.duration-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  background-color: var(--bg-light);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition);
+  flex: 1;
+  min-width: 100px;
+  color: var(--text-secondary);
+}
+
+.duration-btn:hover:not(:disabled) {
+  background-color: rgba(99, 102, 241, 0.05);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.duration-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
 }
 
 /* 生成按钮 */

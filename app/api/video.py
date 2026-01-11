@@ -8,6 +8,12 @@ from utils.lora_utils import validate_lora_names, validate_lora_files
 # 创建命名空间
 video_ns = Namespace('video', description='视频生成接口')
 
+# 定义LoRA模型结构
+lora_model = video_ns.model('LoraModel', {
+    'name': fields.String(required=True, description='LoRA模型名称'),
+    'strength': fields.Float(required=False, default=1.0, description='LoRA模型强度')
+})
+
 # 定义请求模型
 text2video_model = video_ns.model('Text2VideoRequest', {
     'prompt': fields.String(required=True, description='生成提示词'),
@@ -17,7 +23,7 @@ text2video_model = video_ns.model('Text2VideoRequest', {
     'width': fields.Integer(required=False, default=544, description='视频宽度'),
     'height': fields.Integer(required=False, default=960, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数'),
-    'lora_names': fields.List(fields.String, required=False, description='LoRA模型名称列表')
+    'loras': fields.List(fields.Nested(lora_model), required=False, description='LoRA模型列表')
 })
 
 img2video_model = video_ns.model('Img2VideoRequest', {
@@ -29,7 +35,7 @@ img2video_model = video_ns.model('Img2VideoRequest', {
     'width': fields.Integer(required=False, default=544, description='视频宽度'),
     'height': fields.Integer(required=False, default=960, description='视频高度'),
     'num_frames': fields.Integer(required=False, default=81, description='视频帧数'),
-    'lora_names': fields.List(fields.String, required=False, description='LoRA模型名称列表')
+    'loras': fields.List(fields.Nested(lora_model), required=False, description='LoRA模型列表')
 })
 
 @video_ns.route('/text2video')
@@ -55,8 +61,9 @@ class Text2Video(Resource):
             if not prompt:
                 return {'code': 400, 'msg': '缺少提示词参数', 'data': None}, 200
             
-            # 校验lora_names
-            lora_names = data.get('lora_names', [])
+            # 校验loras
+            loras = data.get('loras', [])
+            lora_names = [lora.get('name') for lora in loras]
             if lora_names:
                 # 校验lora_name是否存在
                 valid, msg = validate_lora_names('text2video', lora_names)
@@ -77,7 +84,7 @@ class Text2Video(Resource):
                 'width': width,
                 'height': height,
                 'num_frames': num_frames,
-                'lora_names': lora_names
+                'loras': loras
             }
             
             task_id = task_manager.create_task('text2video', task_params)
@@ -117,8 +124,9 @@ class Img2Video(Resource):
             if not image_path:
                 return {'code': 400, 'msg': '缺少图片路径参数', 'data': None}, 200
             
-            # 校验lora_names
-            lora_names = data.get('lora_names', [])
+            # 校验loras
+            loras = data.get('loras', [])
+            lora_names = [lora.get('name') for lora in loras]
             if lora_names:
                 # 校验lora_name是否存在
                 valid, msg = validate_lora_names('img2video', lora_names)
@@ -140,7 +148,7 @@ class Img2Video(Resource):
                 # 'width': width, // 传入之后没效果,会保持图片的分辨率比例
                 # 'height': height,
                 'num_frames': num_frames,
-                'lora_names': lora_names
+                'loras': loras
             }
             
             task_id = task_manager.create_task('img2video', task_params)

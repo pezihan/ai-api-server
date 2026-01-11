@@ -19,6 +19,12 @@
         500,
         250
     ],
+    "fps": 16,
+    "video_frame_interpolation": {
+        "algo": "rife",
+        "target_fps": 32,
+        "model_path": "./rife_model"
+    },
     "dit_quantized": true,
     "dit_quant_scheme": "fp8-q8f",
     "t5_quantized": true,

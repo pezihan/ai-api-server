@@ -249,6 +249,9 @@ const getTaskOrientation = (task: Task) => {
 // 获取任务使用的LoRA模型
 const getTaskLoras = (task: Task) => {
   if (!task.params) return [];
+  if (task.params.loras) {
+    return task.params.loras;
+  }
   return task.params.lora_names || task.params.lora_ids || [];
 };
 
@@ -449,7 +452,12 @@ onUnmounted(() => {
             <!-- LoRA模型信息 -->
             <div class="task-loras" v-if="getTaskLoras(task).length > 0">
               <span class="loras-label">使用LoRA:</span>
-              <span class="loras-list">{{ getTaskLoras(task).join(', ') }}</span>
+              <span class="loras-list">
+                <span v-for="(lora, index) in getTaskLoras(task)" :key="index" class="lora-item">
+                  {{ typeof lora === 'string' ? lora : `${lora.name} (强度: ${lora.strength})` }}
+                  <span v-if="index < getTaskLoras(task).length - 1">, </span>
+                </span>
+              </span>
             </div>
           </div>
 
