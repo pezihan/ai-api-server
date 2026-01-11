@@ -551,7 +551,7 @@ const updateLoraStrength = (loraName: string, event: Event) => {
       </div>
 
       <!-- 推理步数选择 -->
-      <div class="form-group">
+      <div class="form-group" v-if="generateType === 'image'">
         <div class="form-label-container">
           <label for="steps" class="form-label">推理步数</label>
           <span class="label-helper">设置模型推理的步数，值越大生成质量越高但速度越慢</span>
