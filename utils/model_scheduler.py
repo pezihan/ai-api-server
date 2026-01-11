@@ -629,8 +629,35 @@ class ModelScheduler:
             # 否则，检查两个列表是否相同
             else:
                 if self.current_lora_configs is not None and len(lora_configs) == len(self.current_lora_configs):
+                    def compare_lora_configs(cfg1, cfg2):
+                        """比较两个LoRA配置是否相同，支持嵌套结构"""
+                        # 检查是否都有嵌套的high_noise_model结构
+                        if 'high_noise_model' in cfg1 and 'high_noise_model' in cfg2:
+                            hnm1 = cfg1['high_noise_model']
+                            hnm2 = cfg2['high_noise_model']
+                            if hnm1.get('path') != hnm2.get('path') or hnm1.get('strength') != hnm2.get('strength'):
+                                return False
+                        elif 'high_noise_model' in cfg1 or 'high_noise_model' in cfg2:
+                            return False
+                        
+                        # 检查是否都有嵌套的low_noise_model结构
+                        if 'low_noise_model' in cfg1 and 'low_noise_model' in cfg2:
+                            lnm1 = cfg1['low_noise_model']
+                            lnm2 = cfg2['low_noise_model']
+                            if lnm1.get('path') != lnm2.get('path') or lnm1.get('strength') != lnm2.get('strength'):
+                                return False
+                        elif 'low_noise_model' in cfg1 or 'low_noise_model' in cfg2:
+                            return False
+                        
+                        # 检查基本字段（对于非嵌套结构）
+                        if 'high_noise_model' not in cfg1 and 'low_noise_model' not in cfg1:
+                            if cfg1.get('path') != cfg2.get('path') or cfg1.get('strength') != cfg2.get('strength'):
+                                return False
+                        
+                        return True
+                    
                     lora_configs_match = all(
-                        cfg1.get('path') == cfg2.get('path') and cfg1.get('strength') == cfg2.get('strength')
+                        compare_lora_configs(cfg1, cfg2)
                         for cfg1, cfg2 in zip(lora_configs, self.current_lora_configs)
                     )
             
