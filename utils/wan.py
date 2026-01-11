@@ -54,23 +54,27 @@ class WanModelPipeRunner:
     self.lora_configs: Optional[list[LoraConfig]] = lora_configs
 
   def load(self):
-    video_frame_interpolation = None
-    # 判断是否要开启视频插帧
+    # 准备基本参数
+    args_dict = {
+      'model_cls': self.model_cls,
+      'task': self.task,
+      'model_path': self.model_path,
+      'config_json': self.config_json,
+      'use_prompt_enhancer': self.use_prompt_enhancer,
+      'lora_configs': self.lora_configs
+    }
+    
+    # 只有当RIFE_STATE为True时，才添加视频插帧配置
     if config.RIFE_STATE:
-      video_frame_interpolation = {
+      args_dict['video_frame_interpolation'] = {
         "algo": "rife",
         "target_fps": 32,
         "model_path": os.path.join(config.MODEL_DIR, "rife_model")
       }
-    args = Namespace(
-      model_cls=self.model_cls,
-      task=self.task,
-      model_path=self.model_path,
-      config_json=self.config_json,
-      use_prompt_enhancer=self.use_prompt_enhancer,
-      lora_configs=self.lora_configs,
-      video_frame_interpolation=video_frame_interpolation
-    )
+      logger.info(f"添加视频插帧配置: {args_dict['video_frame_interpolation']}")
+    
+    # 创建Namespace对象
+    args = Namespace(**args_dict)
     self.config: LockableDict = set_config(args)
 
     # 调试信息
