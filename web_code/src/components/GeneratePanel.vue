@@ -24,7 +24,8 @@ const formData = reactive({
   height: 960,
   num_frames: 81,
   video_duration: 5, // 视频时长（秒）
-  aspect_ratio: 'vertical' // vertical, horizontal, square
+  aspect_ratio: 'vertical', // vertical, horizontal, square
+  steps: 9 // 默认步数，会根据生成模式自动调整
 });
 
 // 图片上传
@@ -63,12 +64,26 @@ const aspectRatioMap = {
   }
 };
 
-// 监听生成模式变化，自动更新生成类型
+// 监听生成模式变化，自动更新生成类型和步数
 watch(generateMode, (newMode) => {
   selectedLoras.value = [];
   const selectedType = generateTypes.find(type => type.value === newMode);
   if (selectedType) {
     generateType.value = selectedType.type;
+  }
+  
+  // 根据生成模式设置默认步数
+  switch (newMode) {
+    case 'text2img':
+      formData.steps = 9;
+      break;
+    case 'img2img':
+      formData.steps = 20;
+      break;
+    case 'text2video':
+    case 'img2video':
+      formData.steps = 4;
+      break;
   }
 });
 
@@ -140,6 +155,7 @@ const submitGeneration = async () => {
           seed: formData.seed,
           width: formData.width,
           height: formData.height,
+          steps: formData.steps,
           loras: selectedLoras.value
         };
 
@@ -183,6 +199,7 @@ const submitGeneration = async () => {
           seed: formData.seed,
           width: formData.width,
           height: formData.height,
+          steps: formData.steps,
           image_path: uploadResponse.data.file_path,
           loras: selectedLoras.value
         };
@@ -209,6 +226,7 @@ const submitGeneration = async () => {
           seed: formData.seed,
           width: formData.width,
           height: formData.height,
+          steps: formData.steps,
           num_frames: formData.num_frames,
           loras: selectedLoras.value
         };
@@ -253,6 +271,7 @@ const submitGeneration = async () => {
           seed: formData.seed,
           width: formData.width,
           height: formData.height,
+          steps: formData.steps,
           num_frames: formData.num_frames,
           image_path: uploadResponse.data.file_path,
           loras: selectedLoras.value
@@ -528,6 +547,28 @@ const updateLoraStrength = (loraName: string, event: Event) => {
           >
             <span>15秒</span>
           </button>
+        </div>
+      </div>
+
+      <!-- 推理步数选择 -->
+      <div class="form-group">
+        <div class="form-label-container">
+          <label for="steps" class="form-label">推理步数</label>
+          <span class="label-helper">设置模型推理的步数，值越大生成质量越高但速度越慢</span>
+        </div>
+        <div class="steps-control">
+          <input
+            id="steps"
+            type="number"
+            v-model.number="formData.steps"
+            min="1"
+            max="50"
+            :disabled="isGenerating"
+            class="steps-input"
+          />
+          <div class="steps-info">
+            <span>默认值: {{ generateMode === 'text2img' ? 9 : generateMode === 'img2img' ? 20 : 4 }}</span>
+          </div>
         </div>
       </div>
 
@@ -1255,6 +1296,49 @@ const updateLoraStrength = (loraName: string, event: Event) => {
   color: white;
   border-color: var(--primary-color);
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+}
+
+/* 推理步数选择 */
+.steps-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.steps-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: 16px;
+  font-weight: 500;
+  transition: var(--transition);
+  color: var(--text-primary);
+}
+
+.steps-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.steps-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.steps-info {
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
 }
 
 /* 生成按钮 */
