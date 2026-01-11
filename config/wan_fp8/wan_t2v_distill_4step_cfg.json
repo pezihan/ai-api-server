@@ -2,6 +2,7 @@
     "use_prompt_enhancer": true,
     "infer_steps": 4,
     "target_video_length": 81,
+    "fps": 16,
     "text_len": 512,
     "target_height": 480,
     "target_width": 832,
@@ -19,12 +20,6 @@
         500,
         250
     ],
-    "fps": 16,
-    "video_frame_interpolation": {
-        "algo": "rife",
-        "target_fps": 32,
-        "model_path": "./rife_model"
-    },
     "dit_quantized": true,
     "dit_quant_scheme": "fp8-q8f",
     "t5_quantized": true,
