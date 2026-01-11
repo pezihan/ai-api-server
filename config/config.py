@@ -39,5 +39,6 @@ class Config:
     WAN_MODEL_CONFIG_DIR = os.environ.get('WAN_MODEL_CONFIG_DIR', os.path.join(CONFIG_DIR, os.environ.get('WAN_TYPE', 'wan')))
     
     LORA_DIR = os.environ.get('LORA_DIR', '/loras')
+    RIFE_STATE = os.environ.get('RIFE_STATE', 'False').lower() == 'true'
 # 创建配置实例
 config = Config()

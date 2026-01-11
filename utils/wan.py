@@ -4,6 +4,7 @@ from pathlib import Path
 from argparse import Namespace
 import logging
 from typing import Optional, TypedDict
+from config.config import config
 logging.basicConfig(level=logging.INFO)
 import sys
 
@@ -53,13 +54,22 @@ class WanModelPipeRunner:
     self.lora_configs: Optional[list[LoraConfig]] = lora_configs
 
   def load(self):
+    video_frame_interpolation = None
+    # 判断是否要开启视频插帧
+    if config.get('RIFE_STATE', False):
+      video_frame_interpolation = {
+        "algo": "rife",
+        "target_fps": 32,
+        "model_path": os.path.join(config.MODEL_DIR, "rife_model")
+      }
     args = Namespace(
       model_cls=self.model_cls,
       task=self.task,
       model_path=self.model_path,
       config_json=self.config_json,
       use_prompt_enhancer=self.use_prompt_enhancer,
-      lora_configs=self.lora_configs
+      lora_configs=self.lora_configs,
+      video_frame_interpolation=video_frame_interpolation
     )
     self.config: LockableDict = set_config(args)
 
