@@ -56,7 +56,7 @@ class WanModelPipeRunner:
   def load(self):
     video_frame_interpolation = None
     # 判断是否要开启视频插帧
-    if config.get('RIFE_STATE', False):
+    if config.RIFE_STATE:
       video_frame_interpolation = {
         "algo": "rife",
         "target_fps": 32,
