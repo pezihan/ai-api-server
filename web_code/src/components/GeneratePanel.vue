@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
-import { post, postForm } from '../utils/api';
-import type { ApiResponse } from '../utils/api';
+import { ref, reactive, watch, onMounted, computed } from 'vue';
+import { post, postForm, getLoraConfig } from '../utils/api';
+import type { ApiResponse, LoraConfigResponse, LoraConfig } from '../utils/api';
 
 // 生成类型和模式（组件内部管理）
 const generateType = ref('image'); // image 或 video
@@ -23,7 +23,9 @@ const formData = reactive({
   width: 544,
   height: 960,
   num_frames: 81,
-  aspect_ratio: 'vertical' // vertical, horizontal, square
+  video_duration: 5, // 视频时长（秒）
+  aspect_ratio: 'vertical', // vertical, horizontal, square
+  steps: 9 // 默认步数，会根据生成模式自动调整
 });
 
 // 图片上传
@@ -33,6 +35,20 @@ const imagePreviewUrl = ref('');
 // 加载状态
 const isGenerating = ref(false);
 const generationMessage = ref('');
+
+// LoRA配置
+const loraConfig = ref<LoraConfigResponse | null>(null);
+const selectedLoras = ref<Array<{ name: string; strength: number }>>([]);
+const isLoadingLora = ref(false);
+const loraError = ref('');
+
+// LoRA类型映射
+const loraTypeMap = {
+  text2img: 'z_image',
+  img2img: 'qwen_image_edit',
+  text2video: 'wan_2_1_t2v',
+  img2video: 'wan_2_2_i2v'
+};
 
 // 宽高比映射（根据生成类型）
 const aspectRatioMap = {
@@ -48,11 +64,26 @@ const aspectRatioMap = {
   }
 };
 
-// 监听生成模式变化，自动更新生成类型
+// 监听生成模式变化，自动更新生成类型和步数
 watch(generateMode, (newMode) => {
+  selectedLoras.value = [];
   const selectedType = generateTypes.find(type => type.value === newMode);
   if (selectedType) {
     generateType.value = selectedType.type;
+  }
+  
+  // 根据生成模式设置默认步数
+  switch (newMode) {
+    case 'text2img':
+      formData.steps = 9;
+      break;
+    case 'img2img':
+      formData.steps = 20;
+      break;
+    case 'text2video':
+    case 'img2video':
+      formData.steps = 4;
+      break;
   }
 });
 
@@ -60,8 +91,8 @@ watch(generateMode, (newMode) => {
 watch(generateType, () => {
   // 应用当前宽高比对应的宽高值
   const currentRatio = formData.aspect_ratio;
-  formData.width = aspectRatioMap[generateType.value][currentRatio as keyof typeof aspectRatioMap[typeof generateType.value]].width;
-  formData.height = aspectRatioMap[generateType.value][currentRatio as keyof typeof aspectRatioMap[typeof generateType.value]].height;
+  formData.width = aspectRatioMap[generateType.value as 'image' | 'video'][currentRatio as 'vertical' | 'horizontal' | 'square'].width;
+  formData.height = aspectRatioMap[generateType.value as 'image' | 'video'][currentRatio as 'vertical' | 'horizontal' | 'square'].height;
 });
 
 // 处理图片上传
@@ -83,8 +114,25 @@ const clearUploadedImage = () => {
 // 切换宽高比
 const changeAspectRatio = (ratio: string) => {
   formData.aspect_ratio = ratio;
-  formData.width = aspectRatioMap[generateType.value][ratio as keyof typeof aspectRatioMap[typeof generateType.value]].width;
-  formData.height = aspectRatioMap[generateType.value][ratio as keyof typeof aspectRatioMap[typeof generateType.value]].height;
+  formData.width = aspectRatioMap[generateType.value as 'image' | 'video'][ratio as 'vertical' | 'horizontal' | 'square'].width;
+  formData.height = aspectRatioMap[generateType.value as 'image' | 'video'][ratio as 'vertical' | 'horizontal' | 'square'].height;
+};
+
+// 切换视频时长
+const changeVideoDuration = (duration: number) => {
+  formData.video_duration = duration;
+  // 根据时长设置对应帧数
+  switch (duration) {
+    case 5:
+      formData.num_frames = 81;
+      break;
+    case 10:
+      formData.num_frames = 161;
+      break;
+    case 15:
+      formData.num_frames = 241;
+      break;
+  }
 };
 
 // 定义事件
@@ -99,15 +147,17 @@ const submitGeneration = async () => {
     generationMessage.value = '正在生成...';
 
     // 文生图
-    if (generateType.value === 'image' && generateMode.value === 'text2img') {
-      // 准备请求数据
-      const requestData = {
-        prompt: formData.prompt,
-        negative_prompt: formData.negative_prompt,
-        seed: formData.seed,
-        width: formData.width,
-        height: formData.height
-      };
+      if (generateType.value === 'image' && generateMode.value === 'text2img') {
+        // 准备请求数据
+        const requestData = {
+          prompt: formData.prompt,
+          negative_prompt: formData.negative_prompt,
+          seed: formData.seed,
+          width: formData.width,
+          height: formData.height,
+          steps: formData.steps,
+          loras: selectedLoras.value
+        };
 
       // 发送请求
       const response = await post<{ task_id: string }>('/image/text2img', requestData);
@@ -143,14 +193,16 @@ const submitGeneration = async () => {
       }
 
       // 准备图生图请求数据
-      const requestData = {
-        prompt: formData.prompt,
-        negative_prompt: formData.negative_prompt,
-        seed: formData.seed,
-        width: formData.width,
-        height: formData.height,
-        image_path: uploadResponse.data.file_path
-      };
+        const requestData = {
+          prompt: formData.prompt,
+          negative_prompt: formData.negative_prompt,
+          seed: formData.seed,
+          width: formData.width,
+          height: formData.height,
+          steps: formData.steps,
+          image_path: uploadResponse.data.file_path,
+          loras: selectedLoras.value
+        };
 
       // 发送图生图请求
       const response = await post<{ task_id: string }>('/image/img2img', requestData);
@@ -166,16 +218,18 @@ const submitGeneration = async () => {
     }
 
     // 文生视频
-    if (generateType.value === 'video' && generateMode.value === 'text2video') {
-      // 准备请求数据
-      const requestData = {
-        prompt: formData.prompt,
-        negative_prompt: formData.negative_prompt,
-        seed: formData.seed,
-        width: formData.width,
-        height: formData.height,
-        num_frames: formData.num_frames
-      };
+      if (generateType.value === 'video' && generateMode.value === 'text2video') {
+        // 准备请求数据
+        const requestData = {
+          prompt: formData.prompt,
+          negative_prompt: formData.negative_prompt,
+          seed: formData.seed,
+          width: formData.width,
+          height: formData.height,
+          steps: formData.steps,
+          num_frames: formData.num_frames,
+          loras: selectedLoras.value
+        };
 
       // 发送请求
       const response = await post<{ task_id: string }>('/video/text2video', requestData);
@@ -211,15 +265,17 @@ const submitGeneration = async () => {
       }
 
       // 准备图生视频请求数据
-      const requestData = {
-        prompt: formData.prompt,
-        negative_prompt: formData.negative_prompt,
-        seed: formData.seed,
-        width: formData.width,
-        height: formData.height,
-        num_frames: formData.num_frames,
-        image_path: uploadResponse.data.file_path
-      };
+        const requestData = {
+          prompt: formData.prompt,
+          negative_prompt: formData.negative_prompt,
+          seed: formData.seed,
+          width: formData.width,
+          height: formData.height,
+          steps: formData.steps,
+          num_frames: formData.num_frames,
+          image_path: uploadResponse.data.file_path,
+          loras: selectedLoras.value
+        };
 
       // 发送图生视频请求
       const response = await post<{ task_id: string }>('/video/img2video', requestData);
@@ -242,10 +298,76 @@ const submitGeneration = async () => {
   }
 };
 
+// 获取LoRA配置
+const loadLoraConfig = async () => {
+  try {
+    isLoadingLora.value = true;
+    loraError.value = '';
+    
+    const response = await getLoraConfig();
+    if (response.success && response.data) {
+      loraConfig.value = response.data;
+    } else {
+      loraError.value = response.error || '获取LoRA配置失败';
+    }
+  } catch (error) {
+    console.error('加载LoRA配置失败:', error);
+    loraError.value = error instanceof Error ? error.message : '网络请求失败';
+  } finally {
+    isLoadingLora.value = false;
+  }
+};
+
+// 根据当前生成模式获取对应的LoRA列表
+const currentLoraList = computed(() => {
+  if (!loraConfig.value) return [];
+  
+  const configKey = loraTypeMap[generateMode.value as keyof typeof loraTypeMap];
+  return loraConfig.value[configKey as keyof LoraConfigResponse] || [];
+});
+
+// 组件挂载时加载LoRA配置
+onMounted(() => {
+  loadLoraConfig();
+});
+
 // 重新生成（使用相同参数）
 const regenerate = () => {
   formData.seed = Math.floor(Math.random() * 1000000);
   submitGeneration();
+};
+
+// 处理LoRA选择切换
+const handleLoraToggle = (loraName: string) => {
+  const existingIndex = selectedLoras.value.findIndex(item => item.name === loraName);
+  if (existingIndex >= 0) {
+    // 如果已存在，则移除
+    selectedLoras.value.splice(existingIndex, 1);
+  } else {
+    // 如果不存在，则添加，默认强度为1.0
+    selectedLoras.value.push({ name: loraName, strength: 1.0 });
+  }
+};
+
+// 检查LoRA是否被选中
+const isLoraSelected = (loraName: string) => {
+  return selectedLoras.value.some(item => item.name === loraName);
+};
+
+// 获取LoRA强度
+const getLoraStrength = (loraName: string) => {
+  const lora = selectedLoras.value.find(item => item.name === loraName);
+  return lora ? lora.strength : 1.0;
+};
+
+// 更新LoRA强度
+const updateLoraStrength = (loraName: string, event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const strength = parseFloat(target.value);
+  const lora = selectedLoras.value.find(item => item.name === loraName);
+  if (lora) {
+    lora.strength = strength;
+  }
 };
 </script>
 
@@ -363,7 +485,7 @@ const regenerate = () => {
             :class="{ active: formData.aspect_ratio === 'vertical' }"
             @click="changeAspectRatio('vertical')"
             :disabled="isGenerating"
-            :title="`竖屏 (${aspectRatioMap[generateType][formData.aspect_ratio].width}x${aspectRatioMap[generateType][formData.aspect_ratio].height})`"
+            :title="`竖屏 (${aspectRatioMap[generateType as 'image' | 'video'][formData.aspect_ratio as 'vertical' | 'horizontal' | 'square'].width}x${aspectRatioMap[generateType as 'image' | 'video'][formData.aspect_ratio as 'vertical' | 'horizontal' | 'square'].height})`"
           >
             <div class="aspect-icon vertical"></div>
             <span>竖屏</span>
@@ -373,7 +495,7 @@ const regenerate = () => {
             :class="{ active: formData.aspect_ratio === 'horizontal' }"
             @click="changeAspectRatio('horizontal')"
             :disabled="isGenerating"
-            :title="`横屏 (${aspectRatioMap[generateType][formData.aspect_ratio].width}x${aspectRatioMap[generateType][formData.aspect_ratio].height})`"
+            :title="`横屏 (${aspectRatioMap[generateType as 'image' | 'video'][formData.aspect_ratio as 'vertical' | 'horizontal' | 'square'].width}x${aspectRatioMap[generateType as 'image' | 'video'][formData.aspect_ratio as 'vertical' | 'horizontal' | 'square'].height})`"
           >
             <div class="aspect-icon horizontal"></div>
             <span>横屏</span>
@@ -383,11 +505,135 @@ const regenerate = () => {
             :class="{ active: formData.aspect_ratio === 'square' }"
             @click="changeAspectRatio('square')"
             :disabled="isGenerating"
-            :title="`方形 (${aspectRatioMap[generateType][formData.aspect_ratio].width}x${aspectRatioMap[generateType][formData.aspect_ratio].height})`"
+            :title="`方形 (${aspectRatioMap[generateType as 'image' | 'video'][formData.aspect_ratio as 'vertical' | 'horizontal' | 'square'].width}x${aspectRatioMap[generateType as 'image' | 'video'][formData.aspect_ratio as 'vertical' | 'horizontal' | 'square'].height})`"
           >
             <div class="aspect-icon square"></div>
             <span>方形</span>
           </button>
+        </div>
+      </div>
+
+      <!-- 视频时长选择（仅视频生成） -->
+      <div class="form-group" v-if="generateType === 'video'">
+        <div class="form-label-container">
+          <label class="form-label">视频时长</label>
+          <span class="label-helper">选择生成视频的时长</span>
+        </div>
+        <div class="duration-buttons">
+          <button
+            class="duration-btn"
+            :class="{ active: formData.video_duration === 5 }"
+            @click="changeVideoDuration(5)"
+            :disabled="isGenerating"
+            :title="`5秒 (81帧)`"
+          >
+            <span>5秒</span>
+          </button>
+          <button
+            class="duration-btn"
+            :class="{ active: formData.video_duration === 10 }"
+            @click="changeVideoDuration(10)"
+            :disabled="isGenerating"
+            :title="`10秒 (161帧)`"
+          >
+            <span>10秒</span>
+          </button>
+          <button
+            class="duration-btn"
+            :class="{ active: formData.video_duration === 15 }"
+            @click="changeVideoDuration(15)"
+            :disabled="isGenerating"
+            :title="`15秒 (241帧)`"
+          >
+            <span>15秒</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 推理步数选择 -->
+      <div class="form-group" v-if="generateType === 'image'">
+        <div class="form-label-container">
+          <label for="steps" class="form-label">推理步数</label>
+          <span class="label-helper">设置模型推理的步数，值越大生成质量越高但速度越慢</span>
+        </div>
+        <div class="steps-control">
+          <input
+            id="steps"
+            type="number"
+            v-model.number="formData.steps"
+            min="1"
+            max="50"
+            :disabled="isGenerating"
+            class="steps-input"
+          />
+          <div class="steps-info">
+            <span>默认值: {{ generateMode === 'text2img' ? 9 : generateMode === 'img2img' ? 20 : 4 }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LoRA选择 -->
+      <div class="form-group">
+        <div class="form-label-container">
+          <label class="form-label">LoRA模型</label>
+          <span class="label-helper">选择要应用的LoRA模型（可多选）</span>
+        </div>
+        <div class="lora-selection">
+          <!-- LoRA加载状态 -->
+          <div v-if="isLoadingLora" class="lora-loading">
+            <div class="loading-spinner"></div>
+            <span>加载LoRA配置...</span>
+          </div>
+          
+          <!-- LoRA加载错误 -->
+          <div v-else-if="loraError" class="lora-error">
+            <span>{{ loraError }}</span>
+            <button class="retry-btn" @click="loadLoraConfig" :disabled="isGenerating">
+              重试
+            </button>
+          </div>
+          
+          <!-- LoRA列表 -->
+          <div v-else-if="currentLoraList.length > 0" class="lora-list">
+            <div
+              v-for="lora in currentLoraList"
+              :key="lora.name"
+              class="lora-item"
+            >
+              <label class="lora-checkbox">
+                <input
+                  type="checkbox"
+                  :value="lora.name"
+                  @change="handleLoraToggle(lora.name)"
+                  :checked="isLoraSelected(lora.name)"
+                  :disabled="isGenerating"
+                />
+                <span class="checkbox-custom"></span>
+                <div class="lora-info">
+                  <span class="lora-name">{{ lora.name }}</span>
+                  <div class="lora-strength-control" v-if="isLoraSelected(lora.name)">
+                    <label for="strength-{{ lora.name }}">强度:</label>
+                    <input
+                      id="strength-{{ lora.name }}"
+                      type="number"
+                      :value="getLoraStrength(lora.name)"
+                      @input="updateLoraStrength(lora.name, $event)"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      :disabled="isGenerating"
+                      class="strength-input"
+                    />
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+          
+          <!-- 无LoRA模型 -->
+          <div v-else class="lora-empty">
+            <span>当前生成类型暂无可用的LoRA模型</span>
+          </div>
         </div>
       </div>
 
@@ -613,9 +859,244 @@ const regenerate = () => {
   color: white;
   border: none;
   border-radius: 50%;
+}
+
+/* LoRA选择样式 */
+.lora-selection {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  transition: var(--transition);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.lora-selection:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.lora-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top: 2px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.lora-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background-color: rgba(239, 68, 68, 0.1);
+  border-left: 4px solid var(--error-color);
+  border-radius: var(--radius-md);
+  color: var(--error-color);
+}
+
+.retry-btn {
+  padding: 8px 16px;
+  background-color: var(--error-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
   cursor: pointer;
   transition: var(--transition);
-  box-shadow: var(--shadow-md);
+}
+
+.retry-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lora-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lora-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+
+.lora-item:hover {
+  border-color: var(--primary-color);
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+.lora-checkbox {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 16px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.lora-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkbox-custom {
+  position: relative;
+  height: 20px;
+  width: 20px;
+  background-color: var(--bg-color);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-right: 12px;
+  transition: var(--transition);
+}
+
+.lora-checkbox:hover .checkbox-custom {
+  border-color: var(--primary-color);
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+.lora-checkbox input:checked ~ .checkbox-custom {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.checkbox-custom:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 6px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.lora-checkbox input:checked ~ .checkbox-custom:after {
+  display: block;
+}
+
+.lora-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lora-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.lora-strength-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lora-strength-control label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.strength-input {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background-color: var(--bg-color);
+  transition: var(--transition);
+}
+
+.strength-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.strength-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--bg-light);
+}
+
+.lora-strength {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.lora-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+}
+
+/* 滚动条样式 */
+.lora-selection::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lora-selection::-webkit-scrollbar-track {
+  background: var(--bg-light);
+  border-radius: var(--radius-md);
+}
+
+.lora-selection::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-md);
+  transition: var(--transition);
+}
+
+.lora-selection::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* 禁用状态 */
+.lora-checkbox input:disabled ~ .checkbox-custom {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lora-checkbox input:disabled ~ .lora-info {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .clear-image-btn:hover {
@@ -776,6 +1257,88 @@ const regenerate = () => {
 .aspect-btn.active .aspect-icon {
   background-color: rgba(255, 255, 255, 0.2);
   border-color: white;
+}
+
+/* 视频时长选择 */
+.duration-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.duration-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 20px;
+  background-color: var(--bg-light);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition);
+  flex: 1;
+  min-width: 100px;
+  color: var(--text-secondary);
+}
+
+.duration-btn:hover:not(:disabled) {
+  background-color: rgba(99, 102, 241, 0.05);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.duration-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+}
+
+/* 推理步数选择 */
+.steps-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.steps-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: 16px;
+  font-weight: 500;
+  transition: var(--transition);
+  color: var(--text-primary);
+}
+
+.steps-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.steps-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.steps-info {
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
 }
 
 /* 生成按钮 */

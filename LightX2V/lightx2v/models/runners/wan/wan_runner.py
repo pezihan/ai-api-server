@@ -8,35 +8,27 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from loguru import logger
 
-from LightX2V.lightx2v.models.input_encoders.hf.wan.t5.model import T5EncoderModel
-from LightX2V.lightx2v.models.input_encoders.hf.wan.xlm_roberta.model import CLIPModel
-from LightX2V.lightx2v.models.networks.wan.lora_adapter import WanLoraWrapper
-from LightX2V.lightx2v.models.networks.wan.model import WanModel
-from LightX2V.lightx2v.models.runners.default_runner import DefaultRunner
-from LightX2V.lightx2v.models.schedulers.wan.changing_resolution.scheduler import (
+from lightx2v.models.input_encoders.hf.wan.t5.model import T5EncoderModel
+from lightx2v.models.input_encoders.hf.wan.xlm_roberta.model import CLIPModel
+from lightx2v.models.networks.wan.lora_adapter import WanLoraWrapper
+from lightx2v.models.networks.wan.model import WanModel
+from lightx2v.models.runners.default_runner import DefaultRunner
+from lightx2v.models.schedulers.wan.changing_resolution.scheduler import (
     WanScheduler4ChangingResolutionInterface,
 )
-from LightX2V.lightx2v.models.schedulers.wan.feature_caching.scheduler import (
+from lightx2v.models.schedulers.wan.feature_caching.scheduler import (
     WanSchedulerCaching,
     WanSchedulerTaylorCaching,
 )
-from LightX2V.lightx2v.models.schedulers.wan.scheduler import WanScheduler
-from LightX2V.lightx2v.models.video_encoders.hf.wan.vae import WanVAE
-from LightX2V.lightx2v.models.video_encoders.hf.wan.vae_2_2 import Wan2_2_VAE
-from LightX2V.lightx2v.models.video_encoders.hf.wan.vae_tiny import Wan2_2_VAE_tiny, WanVAE_tiny
-# Delay import to prevent duplicate metrics registration
-monitor_cli = None
-
-def get_monitor_cli():
-    global monitor_cli
-    if monitor_cli is None:
-        from LightX2V.lightx2v.server.metrics import monitor_cli as cli
-        monitor_cli = cli
-    return monitor_cli
-from LightX2V.lightx2v.utils.envs import *
-from LightX2V.lightx2v.utils.profiler import *
-from LightX2V.lightx2v.utils.registry_factory import RUNNER_REGISTER
-from LightX2V.lightx2v.utils.utils import *
+from lightx2v.models.schedulers.wan.scheduler import WanScheduler
+from lightx2v.models.video_encoders.hf.wan.vae import WanVAE
+from lightx2v.models.video_encoders.hf.wan.vae_2_2 import Wan2_2_VAE
+from lightx2v.models.video_encoders.hf.wan.vae_tiny import Wan2_2_VAE_tiny, WanVAE_tiny
+from lightx2v.server.metrics import monitor_cli
+from lightx2v.utils.envs import *
+from lightx2v.utils.profiler import *
+from lightx2v.utils.registry_factory import RUNNER_REGISTER
+from lightx2v.utils.utils import *
 from lightx2v_platform.base.global_var import AI_DEVICE
 
 
@@ -56,7 +48,6 @@ class WanRunner(DefaultRunner):
             self.init_device,
         )
         if self.config.get("lora_configs") and self.config.lora_configs:
-            assert not self.config.get("dit_quantized", False)
             lora_wrapper = WanLoraWrapper(model)
             for lora_config in self.config.lora_configs:
                 lora_path = lora_config["path"]
@@ -225,7 +216,7 @@ class WanRunner(DefaultRunner):
     @ProfilingContext4DebugL1(
         "Run Text Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=get_monitor_cli().lightx2v_run_text_encode_duration,
+        metrics_func=monitor_cli.lightx2v_run_text_encode_duration,
         metrics_labels=["WanRunner"],
     )
     def run_text_encoder(self, input_info):
@@ -234,7 +225,7 @@ class WanRunner(DefaultRunner):
 
         prompt = input_info.prompt_enhanced if self.config["use_prompt_enhancer"] else input_info.prompt
         if GET_RECORDER_MODE():
-            get_monitor_cli().lightx2v_input_prompt_len.observe(len(prompt))
+            monitor_cli.lightx2v_input_prompt_len.observe(len(prompt))
         neg_prompt = input_info.negative_prompt
 
         if self.config.get("enable_cfg", False) and self.config["cfg_parallel"]:
@@ -263,7 +254,7 @@ class WanRunner(DefaultRunner):
 
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             del self.text_encoders[0]
-            torch.cuda.empty_cache()
+            torch_device_module.empty_cache()
             gc.collect()
 
         return text_encoder_output
@@ -271,7 +262,7 @@ class WanRunner(DefaultRunner):
     @ProfilingContext4DebugL1(
         "Run Image Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=get_monitor_cli().lightx2v_run_img_encode_duration,
+        metrics_func=monitor_cli.lightx2v_run_img_encode_duration,
         metrics_labels=["WanRunner"],
     )
     def run_image_encoder(self, first_frame, last_frame=None):
@@ -283,7 +274,7 @@ class WanRunner(DefaultRunner):
             clip_encoder_out = self.image_encoder.visual([first_frame, last_frame]).squeeze(0).to(GET_DTYPE())
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             del self.image_encoder
-            torch.cuda.empty_cache()
+            torch_device_module.empty_cache()
             gc.collect()
         return clip_encoder_out
 
@@ -342,7 +333,7 @@ class WanRunner(DefaultRunner):
     @ProfilingContext4DebugL1(
         "Run VAE Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=get_monitor_cli().lightx2v_run_vae_encoder_image_duration,
+        metrics_func=monitor_cli.lightx2v_run_vae_encoder_image_duration,
         metrics_labels=["WanRunner"],
     )
     def run_vae_encoder(self, first_frame, last_frame=None):
@@ -438,7 +429,7 @@ class WanRunner(DefaultRunner):
 
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             del self.vae_encoder
-            torch.cuda.empty_cache()
+            torch_device_module.empty_cache()
             gc.collect()
         vae_encoder_out = torch.concat([msk, vae_encoder_out]).to(GET_DTYPE())
         return vae_encoder_out
@@ -588,8 +579,6 @@ class Wan22MoeRunner(WanRunner):
             )
 
             if self.config.get("lora_configs") and self.config["lora_configs"]:
-                assert not self.config.get("dit_quantized", False)
-
                 for lora_config in self.config["lora_configs"]:
                     lora_path = lora_config["path"]
                     strength = lora_config.get("strength", 1.0)
@@ -629,7 +618,7 @@ class Wan22DenseRunner(WanRunner):
     @ProfilingContext4DebugL1(
         "Run VAE Encoder",
         recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=get_monitor_cli().lightx2v_run_vae_encoder_image_duration,
+        metrics_func=monitor_cli.lightx2v_run_vae_encoder_image_duration,
         metrics_labels=["Wan22DenseRunner"],
     )
     def run_vae_encoder(self, img):

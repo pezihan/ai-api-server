@@ -1,4 +1,4 @@
-from lightx2v_platform.registry_factory import PLATFORM_ATTN_WEIGHT_REGISTER, PLATFORM_MM_WEIGHT_REGISTER
+from lightx2v_platform.registry_factory import PLATFORM_ATTN_WEIGHT_REGISTER, PLATFORM_LAYERNORM_WEIGHT_REGISTER, PLATFORM_MM_WEIGHT_REGISTER, PLATFORM_RMS_WEIGHT_REGISTER, PLATFORM_ROPE_REGISTER
 
 
 class Register(dict):
@@ -20,8 +20,7 @@ class Register(dict):
             key = target.__name__
 
         if key in self._dict:
-            # 如果键已经存在，跳过注册（避免多次导入时的重复注册错误）
-            return target
+            return self._dict[key]
 
         self[key] = target
         return target
@@ -30,10 +29,7 @@ class Register(dict):
         self._dict[key] = value
 
     def __getitem__(self, key):
-        try:
-            return self._dict[key]
-        except KeyError:
-            raise KeyError(f"'{key}' 不在注册器中。可用的键: {list(self._dict.keys())}")
+        return self._dict[key]
 
     def __contains__(self, key):
         return key in self._dict
@@ -55,10 +51,8 @@ class Register(dict):
 
     def merge(self, other_register):
         for key, value in other_register.items():
-            if key in self._dict:
-                # 如果键已经存在，跳过注册（避免多次导入时的重复注册错误）
-                continue
-            self[key] = value
+            if key not in self._dict:
+                self[key] = value
 
 
 MM_WEIGHT_REGISTER = Register()
@@ -71,6 +65,10 @@ TENSOR_REGISTER = Register()
 CONVERT_WEIGHT_REGISTER = Register()
 EMBEDDING_WEIGHT_REGISTER = Register()
 RUNNER_REGISTER = Register()
+ROPE_REGISTER = Register()
 
 ATTN_WEIGHT_REGISTER.merge(PLATFORM_ATTN_WEIGHT_REGISTER)
 MM_WEIGHT_REGISTER.merge(PLATFORM_MM_WEIGHT_REGISTER)
+RMS_WEIGHT_REGISTER.merge(PLATFORM_RMS_WEIGHT_REGISTER)
+LN_WEIGHT_REGISTER.merge(PLATFORM_LAYERNORM_WEIGHT_REGISTER)
+ROPE_REGISTER.merge(PLATFORM_ROPE_REGISTER)

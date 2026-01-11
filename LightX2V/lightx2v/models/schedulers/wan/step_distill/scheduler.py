@@ -40,10 +40,6 @@ class WanStepDistillScheduler(WanScheduler):
         sample = (1 - sigma) * original_samples + sigma * noise
         return sample.type_as(noise)
 
-    def step_pre(self, step_index):
-        super().step_pre(step_index)
-        self.timestep_input = torch.stack([self.timesteps[self.step_index]])
-
     def step_post(self):
         flow_pred = self.noise_pred.to(torch.float32)
         sigma = self.sigmas[self.step_index].item()
@@ -53,12 +49,14 @@ class WanStepDistillScheduler(WanScheduler):
             noisy_image_or_video = noisy_image_or_video + flow_pred * sigma_n
         self.latents = noisy_image_or_video.to(self.latents.dtype)
 
+
 class Wan21MeanFlowStepDistillScheduler(WanStepDistillScheduler):
     def __init__(self, config):
         super().__init__(config)
 
     def step_pre(self, step_index):
         super().step_pre(step_index)
+        self.timestep_input = torch.stack([self.timesteps[self.step_index]])
         if self.config["model_cls"] == "wan2.2" and self.config["task"] in ["i2v", "s2v"]:
             self.timestep_input = (self.mask[0][:, ::2, ::2] * self.timestep_input).flatten()
         if self.config["model_cls"] == "wan2.1_mean_flow_distill":

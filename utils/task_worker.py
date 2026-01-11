@@ -1,13 +1,14 @@
 import time
 import os
 import base64
-import pika
 import threading
+import json
 from utils.logger import logger
 from utils.model_scheduler import model_scheduler
 from utils.task_manager import task_manager
 from utils.rabbitmq_client import rabbitmq_client
 from config.config import config
+from utils.lora_utils import get_lora_configs
 from PIL import Image
 class TaskWorker:
     """任务工作器，负责处理生成任务"""
@@ -20,6 +21,19 @@ class TaskWorker:
         self.message_queue_lock = threading.Lock()  # 消息队列锁
         self.worker_thread = None  # 工作线程
         self.worker_event = threading.Event()  # 工作线程事件，用于通知有新消息
+    
+    def _get_lora_configs(self, task_type, loras):
+        """
+        根据任务类型和lora对象获取对应的lora配置
+        
+        Args:
+            task_type: str, 任务类型
+            loras: list, lora对象列表，每个对象包含name和strength
+            
+        Returns:
+            list: lora配置列表
+        """
+        return get_lora_configs(task_type, loras)
     
     def start(self):
         """启动任务工作器"""
@@ -211,6 +225,10 @@ class TaskWorker:
         guidance_scale = task_params.get('guidance_scale', 5.0)
         width = task_params.get('width', 512)
         height = task_params.get('height', 512)
+        loras = task_params.get('loras', [])
+        
+        # 处理LoRA配置
+        lora_configs = self._get_lora_configs(task_type, loras)    
 
         # 设置随机生成器
         generator = torch.Generator(device="cuda").manual_seed(seed) if seed is not None else None
@@ -225,7 +243,8 @@ class TaskWorker:
                 height=height,
                 num_inference_steps=steps,
                 guidance_scale=guidance_scale,
-                generator=generator
+                generator=generator,
+                lora_configs=lora_configs
             )
             
         elif task_type == 'img2img':
@@ -251,6 +270,7 @@ class TaskWorker:
                 num_images_per_prompt=1,
                 width=width,
                 height=height,
+                lora_configs=lora_configs
             )
         
         # 获取生成的图片
@@ -289,10 +309,13 @@ class TaskWorker:
         width = task_params.get('width', 544)
         height = task_params.get('height', 960)
         num_frames = task_params.get('num_frames', 81)
+        loras = task_params.get('loras', [])
         
+        # 处理LoRA配置
+        lora_configs = self._get_lora_configs(task_type, loras)
         # 加载wan模型
-        pipe = model_scheduler.load_model(task_type=task_type)
-        
+        pipe = model_scheduler.load_model(task_type=task_type, lora_configs=lora_configs)
+ 
         # 生成唯一的输出路径
         output_dir = os.path.join(config.FILE_SAVE_DIR, "ai-api-videos")
         os.makedirs(output_dir, exist_ok=True)

@@ -11,16 +11,16 @@ import torch
 import torch.distributed as dist
 from loguru import logger
 
-# from lightx2v.models.runners.hunyuan_video.hunyuan_video_15_runner import HunyuanVideo15Runner  # noqa: F401
+from lightx2v.models.runners.hunyuan_video.hunyuan_video_15_runner import HunyuanVideo15Runner  # noqa: F401
 from lightx2v.models.runners.qwen_image.qwen_image_runner import QwenImageRunner  # noqa: F401
 from lightx2v.models.runners.wan.wan_animate_runner import WanAnimateRunner  # noqa: F401
 from lightx2v.models.runners.wan.wan_audio_runner import Wan22AudioRunner, WanAudioRunner  # noqa: F401
 from lightx2v.models.runners.wan.wan_distill_runner import WanDistillRunner  # noqa: F401
-
-# from lightx2v.models.runners.wan.wan_matrix_game2_runner import WanSFMtxg2Runner  # noqa: F401
+from lightx2v.models.runners.wan.wan_matrix_game2_runner import WanSFMtxg2Runner  # noqa: F401
 from lightx2v.models.runners.wan.wan_runner import Wan22MoeRunner, WanRunner  # noqa: F401
 from lightx2v.models.runners.wan.wan_sf_runner import WanSFRunner  # noqa: F401
 from lightx2v.models.runners.wan.wan_vace_runner import WanVaceRunner  # noqa: F401
+from lightx2v.models.runners.z_image.z_image_runner import ZImageRunner  # noqa: F401
 from lightx2v.utils.input_info import set_input_info
 from lightx2v.utils.registry_factory import RUNNER_REGISTER
 from lightx2v.utils.set_config import print_config, set_config, set_parallel_config
@@ -98,27 +98,21 @@ class LightX2VPipeline:
             self.vae_stride = (4, 16, 16)
             self.num_channels_latents = 32
 
-        if model_cls in ["qwen-image-edit", "qwen-image-edit-2509", "qwen-image-edit-2511"]:
-            self.zero_cond_t = False
+        if model_cls in ["qwen-image-edit", "qwen-image-edit-2509", "qwen-image-edit-2511", "qwen-image-2512"]:
             self.CONDITION_IMAGE_SIZE = 147456
             self.USE_IMAGE_ID_IN_PROMPT = True
             if model_cls == "qwen-image-edit":
                 self.CONDITION_IMAGE_SIZE = 1048576
                 self.USE_IMAGE_ID_IN_PROMPT = False
-            elif model_cls == "qwen-image-edit-2511":
-                self.zero_cond_t = True
             self.model_cls = "qwen_image"
-            self.num_layers = 60
-            self.attention_out_dim = 3072
-            self.attention_dim_head = 128
-            self.transformer_in_channels = 64
-            self.vae_scale_factor = 8
             if self.task in ["i2i"]:
                 self.prompt_template_encode = "<|im_start|>system\nDescribe the key features of the input image (color, shape, size, texture, objects, background), then explain how the user's text instruction should alter or modify the image. Generate a new image that meets the user's requirements while maintaining consistency with the original input where appropriate.<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
                 self.prompt_template_encode_start_idx = 64
             elif self.task in ["t2i"]:
                 self.prompt_template_encode = "<|im_start|>system\nDescribe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
                 self.prompt_template_encode_start_idx = 34
+        elif self.model_cls in ["z_image"]:
+            self.model_cls = "z_image"
 
     def create_generator(
         self,
@@ -136,11 +130,9 @@ class LightX2VPipeline:
         denoising_step_list=[1000, 750, 500, 250],
         config_json=None,
         rope_type="torch",
-        auto_resize=False,
+        resize_mode=None,
     ):
-        if self.model_cls in ["qwen_image"]:
-            self._auto_resize = auto_resize
-
+        self.resize_mode = resize_mode
         if config_json is not None:
             self.set_infer_config_json(config_json)
         else:
@@ -203,7 +195,7 @@ class LightX2VPipeline:
             self.self_attn_1_type = attn_mode
             self.cross_attn_1_type = attn_mode
             self.cross_attn_2_type = attn_mode
-        elif self.model_cls in ["hunyuan_video_1.5", "hunyuan_video_1.5_distill"]:
+        elif self.model_cls in ["hunyuan_video_1.5", "hunyuan_video_1.5_distill", "qwen_image"]:
             self.attn_type = attn_mode
 
     def set_infer_config_json(self, config_json):

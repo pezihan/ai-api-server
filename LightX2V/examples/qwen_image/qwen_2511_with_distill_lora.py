@@ -22,7 +22,7 @@ pipe = LightX2VPipeline(
 # Suitable for RTX 30/40/50 consumer GPUs
 # pipe.enable_offload(
 #     cpu_offload=True,
-#     offload_granularity="block",
+#     offload_granularity="block", #["block", "phase"]
 #     text_encoder_offload=True,
 #     vae_offload=False,
 # )
@@ -30,14 +30,14 @@ pipe = LightX2VPipeline(
 # Load distilled LoRA weights
 pipe.enable_lora(
     [
-        {"path": "lightx2v/Qwen-Image-Edit-2511-Lightning/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-fp32.safetensors", "strength": 1.0},
+        {"path": "lightx2v/Qwen-Image-Edit-2511-Lightning/Qwen-Image-Edit-2511-Lightning-8steps-V1.0-fp32.safetensors", "strength": 1.0},
     ]
 )
 # Create generator manually with specified parameters
 pipe.create_generator(
     attn_mode="flash_attn3",
-    auto_resize=True,
-    infer_steps=4,
+    resize_mode="adaptive",
+    infer_steps=8,
     guidance_scale=1,
 )
 

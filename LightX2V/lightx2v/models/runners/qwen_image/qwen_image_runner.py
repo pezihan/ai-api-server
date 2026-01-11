@@ -38,6 +38,10 @@ class QwenImageRunner(DefaultRunner):
 
     def __init__(self, config):
         super().__init__(config)
+        self.is_layered = self.config.get("layered", False)
+        if self.is_layered:
+            self.layers = self.config.get("layers", 4)
+        self.resolution = self.config.get("resolution", 1024)
 
     @ProfilingContext4DebugL2("Load models")
     def load_model(self):
@@ -48,7 +52,6 @@ class QwenImageRunner(DefaultRunner):
     def load_transformer(self):
         model = QwenImageTransformerModel(self.config)
         if self.config.get("lora_configs") and self.config.lora_configs:
-            assert not self.config.get("dit_quantized", False)
             lora_wrapper = QwenImageLoraWrapper(model)
             for lora_config in self.config.lora_configs:
                 lora_path = lora_config["path"]
@@ -74,6 +77,7 @@ class QwenImageRunner(DefaultRunner):
         logger.info("Initializing runner modules...")
         if not self.config.get("lazy_load", False) and not self.config.get("unload_modules", False):
             self.load_model()
+            self.model.set_scheduler(self.scheduler)
         elif self.config.get("lazy_load", False):
             assert self.config.get("cpu_offload", False)
         self.run_dit = self._run_dit_local
@@ -84,12 +88,11 @@ class QwenImageRunner(DefaultRunner):
         else:
             assert NotImplementedError
 
-        self.model.set_scheduler(self.scheduler)
-
     @ProfilingContext4DebugL2("Run DiT")
     def _run_dit_local(self, total_steps=None):
         if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
             self.model = self.load_transformer()
+            self.model.set_scheduler(self.scheduler)
         self.model.scheduler.prepare(self.input_info)
         latents, generator = self.run(total_steps)
         return latents, generator
@@ -97,7 +100,11 @@ class QwenImageRunner(DefaultRunner):
     @ProfilingContext4DebugL2("Run Encoders")
     def _run_input_encoder_local_t2i(self):
         prompt = self.input_info.prompt
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            self.text_encoders = self.load_text_encoder()
         text_encoder_output = self.run_text_encoder(prompt, neg_prompt=self.input_info.negative_prompt)
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            del self.text_encoders[0]
         torch_device_module.empty_cache()
         gc.collect()
         return {
@@ -109,7 +116,10 @@ class QwenImageRunner(DefaultRunner):
         if isinstance(img_path, Image.Image):
             img_ori = img_path
         else:
-            img_ori = Image.open(img_path).convert("RGB")
+            if self.config.get("layered", False):
+                img_ori = Image.open(img_path).convert("RGBA")
+            else:
+                img_ori = Image.open(img_path).convert("RGB")
         if GET_RECORDER_MODE():
             width, height = img_ori.size
             monitor_cli.lightx2v_input_image_len.observe(width * height)
@@ -126,8 +136,11 @@ class QwenImageRunner(DefaultRunner):
             images_list.append(image)
 
         prompt = self.input_info.prompt
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            self.text_encoders = self.load_text_encoder()
         text_encoder_output = self.run_text_encoder(prompt, images_list, neg_prompt=self.input_info.negative_prompt)
-
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            del self.text_encoders[0]
         image_encoder_output_list = []
         for vae_image in text_encoder_output["image_info"]["vae_image_list"]:
             image_encoder_output = self.run_vae_encoder(image=vae_image)
@@ -165,8 +178,30 @@ class QwenImageRunner(DefaultRunner):
 
     @ProfilingContext4DebugL1("Run VAE Encoder", recorder_mode=GET_RECORDER_MODE(), metrics_func=monitor_cli.lightx2v_run_vae_encoder_image_duration, metrics_labels=["QwenImageRunner"])
     def run_vae_encoder(self, image):
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            self.vae = self.load_vae()
         image_latents = self.vae.encode_vae_image(image.to(GET_DTYPE()))
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            del self.vae
+            torch_device_module.empty_cache()
+            gc.collect()
         return {"image_latents": image_latents}
+
+    @ProfilingContext4DebugL1(
+        "Run VAE Decoder",
+        recorder_mode=GET_RECORDER_MODE(),
+        metrics_func=monitor_cli.lightx2v_run_vae_decode_duration,
+        metrics_labels=["QwenImageRunner"],
+    )
+    def run_vae_decoder(self, latents):
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            self.vae = self.load_vae()
+        images = self.vae.decode(latents, self.input_info)
+        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
+            del self.vae
+            torch_device_module.empty_cache()
+            gc.collect()
+        return images
 
     def run(self, total_steps=None):
         if total_steps is None:
@@ -211,14 +246,14 @@ class QwenImageRunner(DefaultRunner):
             logger.info(f"Qwen Image Runner got custom shape: {width}x{height}")
             return (width, height)
 
-        if self.input_info.aspect_ratio:
+        if self.input_info.aspect_ratio and not self.config["_auto_resize"]:
             if self.input_info.aspect_ratio in as_maps:
                 logger.info(f"Qwen Image Runner got aspect ratio: {self.input_info.aspect_ratio}")
                 width, height = as_maps[self.input_info.aspect_ratio]
                 return (width, height)
             logger.warning(f"Invalid aspect ratio: {self.input_info.aspect_ratio}, not in {as_maps.keys()}")
 
-        if self.config["task"] == "t2i" or not self.config["_auto_resize"]:
+        if self.config["task"] == "t2i" or not self.config.get("resize_mode", None) == "adaptive":
             width, height = as_maps[self.config.get("aspect_ratio", "16:9")]
             return (width, height)
         return None
@@ -229,8 +264,8 @@ class QwenImageRunner(DefaultRunner):
             width, height = custom_shape
         else:
             width, height = self.input_info.original_size[-1]
-            calculated_width, calculated_height, _ = calculate_dimensions(1024 * 1024, width / height)
-            multiple_of = self.vae.vae_scale_factor * 2
+            calculated_width, calculated_height, _ = calculate_dimensions(self.resolution * self.resolution, width / height)
+            multiple_of = self.config["vae_scale_factor"] * 2
             width = calculated_width // multiple_of * multiple_of
             height = calculated_height // multiple_of * multiple_of
         logger.info(f"Qwen Image Runner set target shape: {width}x{height}")
@@ -239,20 +274,30 @@ class QwenImageRunner(DefaultRunner):
 
         # VAE applies 8x compression on images but we must also account for packing which requires
         # latent height and width to be divisible by 2.
-        height = 2 * (int(height) // (self.vae.vae_scale_factor * 2))
-        width = 2 * (int(width) // (self.vae.vae_scale_factor * 2))
-        num_channels_latents = self.model.in_channels // 4
-        self.input_info.target_shape = (1, 1, num_channels_latents, height, width)
+        height = 2 * (int(height) // (self.config["vae_scale_factor"] * 2))
+        width = 2 * (int(width) // (self.config["vae_scale_factor"] * 2))
+        num_channels_latents = self.config["in_channels"] // 4
+        if not self.is_layered:
+            self.input_info.target_shape = (1, 1, num_channels_latents, height, width)
+        else:
+            self.input_info.target_shape = (1, self.layers + 1, num_channels_latents, height, width)
 
     def set_img_shapes(self):
         width, height = self.input_info.auto_width, self.input_info.auto_height
         if self.config["task"] == "t2i":
             image_shapes = [(1, height // self.config["vae_scale_factor"] // 2, width // self.config["vae_scale_factor"] // 2)] * 1
         elif self.config["task"] == "i2i":
-            image_shapes = [[(1, height // self.config["vae_scale_factor"] // 2, width // self.config["vae_scale_factor"] // 2)]]
-            for image_height, image_width in self.inputs["text_encoder_output"]["image_info"]["vae_image_info_list"]:
-                image_shapes[0].append((1, image_height // self.config["vae_scale_factor"] // 2, image_width // self.config["vae_scale_factor"] // 2))
-
+            if self.is_layered:
+                image_shapes = [
+                    [
+                        *[(1, height // self.config["vae_scale_factor"] // 2, width // self.config["vae_scale_factor"] // 2) for _ in range(self.layers + 1)],
+                        (1, height // self.config["vae_scale_factor"] // 2, width // self.config["vae_scale_factor"] // 2),
+                    ]
+                ]
+            else:
+                image_shapes = [[(1, height // self.config["vae_scale_factor"] // 2, width // self.config["vae_scale_factor"] // 2)]]
+                for image_height, image_width in self.inputs["text_encoder_output"]["image_info"]["vae_image_info_list"]:
+                    image_shapes[0].append((1, image_height // self.config["vae_scale_factor"] // 2, image_width // self.config["vae_scale_factor"] // 2))
         self.input_info.image_shapes = image_shapes
 
     def init_scheduler(self):
@@ -272,22 +317,6 @@ class QwenImageRunner(DefaultRunner):
         self.vae = self.load_vae()
         self.vfi_model = self.load_vfi_model() if "video_frame_interpolation" in self.config else None
 
-    @ProfilingContext4DebugL1(
-        "Run VAE Decoder",
-        recorder_mode=GET_RECORDER_MODE(),
-        metrics_func=monitor_cli.lightx2v_run_vae_decode_duration,
-        metrics_labels=["QwenImageRunner"],
-    )
-    def run_vae_decoder(self, latents):
-        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
-            self.vae_decoder = self.load_vae()
-        images = self.vae.decode(latents, self.input_info)
-        if self.config.get("lazy_load", False) or self.config.get("unload_modules", False):
-            del self.vae_decoder
-            torch_device_module.empty_cache()
-            gc.collect()
-        return images
-
     def run_pipeline(self, input_info):
         self.input_info = input_info
 
@@ -295,14 +324,19 @@ class QwenImageRunner(DefaultRunner):
         self.set_target_shape()
         self.set_img_shapes()
         logger.info(f"input_info: {self.input_info}")
-
         latents, generator = self.run_dit()
         images = self.run_vae_decoder(latents)
         self.end_run()
 
-        image = images[0]
-        image.save(f"{input_info.save_result_path}")
-        logger.info(f"Image saved: {input_info.save_result_path}")
+        if isinstance(images[0], list) and len(images[0]) > 1:
+            image_prefix = f"{input_info.save_result_path}".split(".")[0]
+            for idx, image in enumerate(images[0]):
+                image.save(f"{image_prefix}_{idx}.png")
+                logger.info(f"Image saved: {image_prefix}_{idx}.png")
+        else:
+            image = images[0]
+            image.save(f"{input_info.save_result_path}")
+            logger.info(f"Image saved: {input_info.save_result_path}")
 
         del latents, generator
         torch_device_module.empty_cache()

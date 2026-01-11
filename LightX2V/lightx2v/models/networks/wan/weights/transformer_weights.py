@@ -227,9 +227,9 @@ class WanSelfAttention(WeightModule):
         self.lazy_load_file = lazy_load_file
 
         if self.config.get("sf_config", False):
-            self.attn_rms_type = "self_forcing"
+            self.attn_rms_type = self.config.get("rms_type", "self_forcing")
         else:
-            self.attn_rms_type = "sgl-kernel"
+            self.attn_rms_type = self.config.get("rms_type", "sgl-kernel")
 
         self.add_module(
             "modulation",
@@ -336,6 +336,19 @@ class WanSelfAttention(WeightModule):
                     attention_weights_cls.coefficient = self.config["nbhd_attn_setting"]["coefficient"]
                 if "min_width" in self.config["nbhd_attn_setting"]:
                     attention_weights_cls.min_width = self.config["nbhd_attn_setting"]["min_width"]
+
+        # draft_attn setting
+        if self.config["self_attn_1_type"] == "draft_attn":
+            attention_weights_cls.sparsity_ratio = self.config.get("draft_attn_sparsity_ratio", 0.75)
+
+        # sla_attn setting
+        if self.config["self_attn_1_type"] == "sla_attn":
+            sla_config = self.config.get("sla_attn_setting", {})
+            if "sparsity_ratio" in sla_config:
+                attention_weights_cls.sparsity_ratio = sla_config["sparsity_ratio"]
+            if "operator" in sla_config:
+                attention_weights_cls.operator = sla_config["operator"]
+
         self.add_module("self_attn_1", attention_weights_cls())
 
         if self.config["seq_parallel"]:
@@ -389,9 +402,9 @@ class WanCrossAttention(WeightModule):
         self.lazy_load_file = lazy_load_file
 
         if self.config.get("sf_config", False):
-            self.attn_rms_type = "self_forcing"
+            self.attn_rms_type = self.config.get("rms_type", "self_forcing")
         else:
-            self.attn_rms_type = "sgl-kernel"
+            self.attn_rms_type = self.config.get("rms_type", "sgl-kernel")
 
         self.add_module(
             "norm3",

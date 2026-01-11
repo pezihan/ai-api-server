@@ -4,7 +4,6 @@
 """
 import sys
 import os
-import time
 import signal
 
 # 添加项目根目录到Python路径

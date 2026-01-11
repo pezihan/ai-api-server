@@ -2,13 +2,13 @@ import os
 
 from loguru import logger
 
-from LightX2V.lightx2v.models.networks.wan.distill_model import WanDistillModel
-from LightX2V.lightx2v.models.networks.wan.lora_adapter import WanLoraWrapper
-from LightX2V.lightx2v.models.networks.wan.model import WanModel
-from LightX2V.lightx2v.models.runners.wan.wan_runner import MultiModelStruct, WanRunner
-from LightX2V.lightx2v.models.schedulers.wan.step_distill.scheduler import Wan21MeanFlowStepDistillScheduler, Wan22StepDistillScheduler, WanStepDistillScheduler
-from LightX2V.lightx2v.utils.profiler import *
-from LightX2V.lightx2v.utils.registry_factory import RUNNER_REGISTER
+from lightx2v.models.networks.wan.distill_model import WanDistillModel
+from lightx2v.models.networks.wan.lora_adapter import WanLoraWrapper
+from lightx2v.models.networks.wan.model import WanModel
+from lightx2v.models.runners.wan.wan_runner import MultiModelStruct, WanRunner
+from lightx2v.models.schedulers.wan.step_distill.scheduler import Wan21MeanFlowStepDistillScheduler, Wan22StepDistillScheduler, WanStepDistillScheduler
+from lightx2v.utils.profiler import *
+from lightx2v.utils.registry_factory import RUNNER_REGISTER
 
 
 @RUNNER_REGISTER("wan2.1_distill")

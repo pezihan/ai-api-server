@@ -1,14 +1,71 @@
 import os
 import gc
-import traceback
 import multiprocessing as mp
 import time
+from typing import Optional, TypedDict, List
 from utils.logger import logger
 from config.config import config
 
 # Set PyTorch CUDA memory allocation configuration to avoid fragmentation
 os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+
+
+class ModelLoraConfig(TypedDict):
+    name: str | None
+    path: str
+    strength: Optional[float | int] | None
+
+class LoraConfig(TypedDict):
+    name: str
+    high_noise_model: ModelLoraConfig | None
+    low_noise_model: ModelLoraConfig | None
+    path: str | None
+    strength: Optional[float] | None
+
+# 格式化模型的LoRA配置
+def _format_lora_configs(lora_configs: Optional[List[LoraConfig]] | None) -> Optional[List[ModelLoraConfig]] | None:
+    """
+    格式化Wan模型的LoRA配置列表，处理high_noise_model和low_noise_model字段
     
+    Args:
+        lora_configs: 原始LoRA配置列表
+        
+    Returns:
+        格式化后的LoRA配置列表，包含处理后的噪声模型配置
+    """
+    if not lora_configs:
+        return None
+    
+    formatted_configs = []
+    for cfg in lora_configs:
+        # 处理high_noise_model字段
+        if 'high_noise_model' in cfg:
+            high_noise_config = {
+                'name': 'high_noise_model',
+                'path': cfg['high_noise_model'].get('path'),
+                'strength': cfg['high_noise_model'].get('strength', cfg.get('strength', 1.0))
+            }
+            formatted_configs.append(high_noise_config)
+        
+        # 处理low_noise_model字段
+        if 'low_noise_model' in cfg:
+            low_noise_config = {
+                'name': 'low_noise_model',
+                'path': cfg['low_noise_model'].get('path'),
+                'strength': cfg['low_noise_model'].get('strength', cfg.get('strength', 1.0))
+            }
+            formatted_configs.append(low_noise_config)
+        
+        # 保持对原始path字段的兼容支持
+        if 'path' in cfg and cfg.get('path'):
+            original_config = {
+                'name': cfg.get('name'),
+                'path': cfg.get('path'),
+                'strength': cfg.get('strength')
+            }
+            formatted_configs.append(original_config)
+    
+    return formatted_configs
 
 # 定义进程间通信的消息类型
 class ModelMessage:
@@ -50,23 +107,27 @@ def model_worker_process(task_queue, result_queue):
                 # 加载模型
                 try:
                     logger.info(f"模型工作进程加载模型: {msg.task_type}")
-                    
+                    # 从params中获取lora_configs
+                    lora_configs = msg.params.get('lora_configs')
+                    logger.info(f"lora配置: {lora_configs}")
                     # 根据任务类型加载不同模型
                     if msg.task_type == 'text2img':
                         model_pipeline = _load_zimage_t2i_model_worker(msg.params)
                     elif msg.task_type == 'img2img':
                         model_pipeline = _load_qwen_i2i_model_worker(msg.params)
                     elif msg.task_type == 'text2video':
-                        model_pipeline = _load_wan_t2v_model_worker(msg.params)
+                        model_pipeline = _load_wan_t2v_model_worker(msg.params, lora_configs=lora_configs)
                     elif msg.task_type == 'img2video':
-                        model_pipeline = _load_wan_i2v_model_worker(msg.params)
+                        model_pipeline = _load_wan_i2v_model_worker(msg.params, lora_configs=lora_configs)
                     
                     current_task = msg.task_type
                     logger.info(f"模型 (任务: {current_task}) 加载成功")
                     result_queue.put(ModelMessage('result', msg.task_type, result="success"))
                 except Exception as e:
-                    logger.exception(f"模型工作进程加载模型失败: {e}")
-                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+                    import traceback
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"模型工作进程加载模型失败: {e}\n{error_traceback}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=f"模型工作进程加载模型失败: {e}\n{error_traceback}"))
                     # 清理模型引用
                     if model_pipeline is not None:
                         try:
@@ -82,11 +143,35 @@ def model_worker_process(task_queue, result_queue):
                     logger.info(f"模型工作进程运行任务: {msg.task_type}")
                     if model_pipeline is None:
                         raise RuntimeError("模型未加载")
-                    
+                    lora_configs = msg.params.get('lora_configs')
+                    if 'lora_configs' in msg.params:
+                        del msg.params['lora_configs']
+                    formatted_lora_configs = _format_lora_configs(lora_configs)
+                    logger.info(f"导入模型lora配置: {formatted_lora_configs}")
                     # 执行推理
                     if hasattr(model_pipeline, 'infer'):
                         result = model_pipeline.infer(**msg.params)
                     else:
+                        # 卸载历史LoRA
+                        if hasattr(model_pipeline, 'unload_lora_weights'):
+                            try:
+                                model_pipeline.unload_lora_weights()
+                                logger.info("已卸载历史LoRA")
+                            except Exception as e:
+                                logger.error(f"卸载LoRA失败: {e}")
+                        # 动态加载/切换LoRA
+                        if hasattr(model_pipeline, 'load_lora_weights'):
+                            if formatted_lora_configs is not None:
+                                for lora_cfg in formatted_lora_configs:
+                                    lora_path = lora_cfg.get('path')
+                                    strength = lora_cfg.get('strength', 1.0)
+                                    if lora_path:
+                                        try:
+                                            model_pipeline.load_lora_weights(lora_path, scale=strength)
+                                            logger.info(f"成功加载LoRA: {lora_cfg.get('name')} (强度: {strength})")
+                                        except Exception as e:
+                                            logger.error(f"加载LoRA失败: {e}")
+
                         result = model_pipeline(**msg.params)
                     logger.info(f"模型工作进程任务完成: {msg.task_type}")
                     result_queue.put(ModelMessage('result', msg.task_type, result=result))
@@ -124,8 +209,10 @@ def model_worker_process(task_queue, result_queue):
                     logger.info("模型工作进程模型卸载完成")
                     result_queue.put(ModelMessage('result', msg.task_type, result="success"))
                 except Exception as e:
-                    logger.exception(f"模型工作进程卸载模型失败: {e}")
-                    result_queue.put(ModelMessage('error', msg.task_type, error=str(e)))
+                    import traceback
+                    error_traceback = traceback.format_exc()
+                    logger.error(f"模型工作进程卸载模型失败: {e}\n{error_traceback}")
+                    result_queue.put(ModelMessage('error', msg.task_type, error=f"模型工作进程卸载模型失败: {e}\n{error_traceback}"))
     
     except Exception as e:
         # 捕获并记录详细的异常信息，包括堆栈
@@ -261,14 +348,14 @@ def _load_qwen_i2i_model_worker(params):
 
     return pipe
 
-def _load_wan_t2v_model_worker(params):
+def _load_wan_t2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] = None):
     """工作进程内部加载wan文生视频模型"""
     import logging
     logging.basicConfig(level=logging.INFO)
     
     try:
         logging.info("开始导入 utils.wan")
-        from utils.wan import WanPipeRunner
+        from utils.wan import WanModelPipeRunner
         logging.info("utils.wan 导入成功")
     except Exception as e:
         logging.error(f"导入 utils.wan 失败: {e}")
@@ -283,13 +370,17 @@ def _load_wan_t2v_model_worker(params):
     logging.info(f"模型加载参数: model_path={model_path}, model_config_path={model_config_path}, model_cls={model_cls}")
     
     try:
-        pipe = WanPipeRunner(
+        # 格式化lora_configs
+        formatted_lora_configs = _format_lora_configs(lora_configs)
+        logger.info(f"导入模型lora配置: {formatted_lora_configs}")
+        pipe = WanModelPipeRunner(
             model_path=model_path,
             config_json_path=model_config_path,
             model_cls=model_cls,
-            task="t2v"
+            task="t2v",
+            lora_configs=formatted_lora_configs
         )
-        logging.info("WanPipeRunner 初始化成功")
+        logging.info("WanModelPipeRunner 初始化成功")
         
         logging.info("开始加载模型...")
         pipe.load()
@@ -301,22 +392,49 @@ def _load_wan_t2v_model_worker(params):
         traceback.print_exc()
         raise
 
-def _load_wan_i2v_model_worker(params):
+def _load_wan_i2v_model_worker(params, lora_configs: Optional[list[LoraConfig]] = None):
     """工作进程内部加载wan图生视频模型"""
-    from utils.wan import WanPipeRunner
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    
+    try:
+        logging.info("开始导入 utils.wan")
+        from utils.wan import WanModelPipeRunner
+        logging.info("utils.wan 导入成功")
+    except Exception as e:
+        logging.error(f"导入 utils.wan 失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
     model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Wan2.2-Distill-Models"))
     model_config_path = params.get('model_config_path', os.path.join(config.WAN_MODEL_CONFIG_DIR, "wan_moe_i2v_distill.json"))
-    model_cls = params.get('model_cls', "wan2.2_moe")
+    model_cls = params.get('model_cls', "wan2.2_moe_distill")
     
-    pipe = WanPipeRunner(
-        model_path=model_path,
-        config_json_path=model_config_path,
-        model_cls=model_cls,
-        task="i2v"
-    )
-    pipe.load()
-    return pipe
+    logging.info(f"模型加载参数: model_path={model_path}, model_config_path={model_config_path}, model_cls={model_cls}")
+    
+    try:
+        # 格式化lora_configs
+        formatted_lora_configs = _format_lora_configs(lora_configs)
+        logger.info(f"导入模型lora配置: {formatted_lora_configs}")
+        pipe = WanModelPipeRunner(
+            model_path=model_path,
+            config_json_path=model_config_path,
+            model_cls=model_cls,
+            task="i2v",
+            lora_configs=formatted_lora_configs
+        )
+        logging.info("WanModelPipeRunner 初始化成功")
+        
+        logging.info("开始加载模型...")
+        pipe.load()
+        logging.info("模型加载成功")
+        return pipe
+    except Exception as e:
+        logging.error(f"模型加载失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def _is_cpu_offload_enabled_image_worker() -> bool:
     import torch
@@ -350,6 +468,7 @@ class ModelScheduler:
         """初始化模型调度器"""
         self.current_task = None  # 当前模型的任务类型
         self.model_params = {}  # 当前模型的参数
+        self.current_lora_configs = None  # 当前模型的LoRA配置
         
         # 进程相关
         self.model_process = None  # 模型工作进程
@@ -442,6 +561,7 @@ class ModelScheduler:
         
         self.current_task = None
         self.model_params = {}
+        self.current_lora_configs = None
         logger.info("模型工作进程已终止")
     
     def _send_message(self, msg, timeout=60):
@@ -476,12 +596,13 @@ class ModelScheduler:
             
             time.sleep(0.1)
 
-    def load_model(self, task_type, **kwargs):
+    def load_model(self, task_type, lora_configs: Optional[list[LoraConfig]] = None, **kwargs):
         """
         加载指定类型的模型
         
         Args:
             task_type: str, 任务类型 ('text2img', 'img2img', 'text2video', 'img2video')
+            lora_configs: Optional[list[LoraConfig]], LoRA配置列表
             **kwargs: 模型加载参数
             
         Returns:
@@ -494,50 +615,96 @@ class ModelScheduler:
         if task_type not in supported_tasks:
             raise ValueError(f"不支持的任务类型: {task_type}")
         
-        logger.info(f"加载模型, 任务类型: {task_type}, 参数: {kwargs}")
+        logger.info(f"加载模型, 任务类型: {task_type}, LoRA配置: {lora_configs}, 参数: {kwargs}")
         
         # 检查是否需要加载新模型
         if self.current_task == task_type:
-            logger.info(f"模型 (任务: {task_type}) 已加载，直接复用")
-            return self._get_inference_func()
+            # 检查LoRA配置是否相同
+            lora_configs_match = False
+            
+            # 如果传过来的lora_configs是None，则当前的current_lora_configs也需要是None才复用
+            if lora_configs is None:
+                if self.current_lora_configs is None:
+                    lora_configs_match = True
+            # 否则，检查两个列表是否相同
+            else:
+                if self.current_lora_configs is not None and len(lora_configs) == len(self.current_lora_configs):
+                    def compare_lora_configs(cfg1, cfg2):
+                        """比较两个LoRA配置是否相同，支持嵌套结构"""
+                        # 检查是否都有嵌套的high_noise_model结构
+                        if 'high_noise_model' in cfg1 and 'high_noise_model' in cfg2:
+                            hnm1 = cfg1['high_noise_model']
+                            hnm2 = cfg2['high_noise_model']
+                            if hnm1.get('path') != hnm2.get('path') or hnm1.get('strength') != hnm2.get('strength'):
+                                return False
+                        elif 'high_noise_model' in cfg1 or 'high_noise_model' in cfg2:
+                            return False
+                        
+                        # 检查是否都有嵌套的low_noise_model结构
+                        if 'low_noise_model' in cfg1 and 'low_noise_model' in cfg2:
+                            lnm1 = cfg1['low_noise_model']
+                            lnm2 = cfg2['low_noise_model']
+                            if lnm1.get('path') != lnm2.get('path') or lnm1.get('strength') != lnm2.get('strength'):
+                                return False
+                        elif 'low_noise_model' in cfg1 or 'low_noise_model' in cfg2:
+                            return False
+                        
+                        # 检查基本字段（对于非嵌套结构）
+                        if 'high_noise_model' not in cfg1 and 'low_noise_model' not in cfg1:
+                            if cfg1.get('path') != cfg2.get('path') or cfg1.get('strength') != cfg2.get('strength'):
+                                return False
+                        
+                        return True
+                    
+                    lora_configs_match = all(
+                        compare_lora_configs(cfg1, cfg2)
+                        for cfg1, cfg2 in zip(lora_configs, self.current_lora_configs)
+                    )
+            
+            if lora_configs_match:
+                logger.info(f"模型 (任务: {task_type}, LoRA配置: {lora_configs}) 已加载，直接复用")
+                return self._get_inference_func()
         
-        # 如果当前有模型且任务类型不同，则卸载当前模型
+        # 如果当前有模型且任务类型不同或LoRA配置不同，则卸载当前模型
         if self.current_task is not None:
             self.unload_model()
         
         # 加载新模型
-        max_retries = 2
-        for retry in range(max_retries):
-            try:
-                # 创建模型工作进程（如果尚未创建）
-                if self.model_process is None or not self.model_process.is_alive():
-                    self._create_model_process()
+        try:
+            # 创建模型工作进程（如果尚未创建）
+            if self.model_process is None or not self.model_process.is_alive():
+                self._create_model_process()
+            
+            # 将lora_configs添加到params中
+            kwargs_with_lora = kwargs.copy()
+            if lora_configs:
+                kwargs_with_lora['lora_configs'] = lora_configs
+            
+            # 发送加载模型消息
+            msg = ModelMessage('load', task_type, params=kwargs_with_lora)
+            # 加载lora非常费时间，增加额外的超时时间
+            lora_load_time = 0
+            if lora_configs is not None:
+                lora_load_time = (len(lora_configs) * (6 * 60))
+                if task_type == 'img2video':
+                    lora_load_time = lora_load_time * 2
+            basics_time = 60 * 6
+            result_msg = self._send_message(msg, timeout=lora_load_time+basics_time)  # 增加超时时间
+            
+            if result_msg.msg_type == 'error':
+                raise RuntimeError(f"模型加载失败: {result_msg.error}")
+            
+            self.current_task = task_type
+            self.model_params = kwargs
+            self.current_lora_configs = lora_configs
+            logger.info(f"模型 (任务: {self.current_task}, LoRA配置: {self.current_lora_configs}) 加载成功")
+            return self._get_inference_func()
                 
-                # 发送加载模型消息
-                msg = ModelMessage('load', task_type, params=kwargs)
-                result_msg = self._send_message(msg, timeout=600)  # 增加超时时间
+        except RuntimeError as e:
+            logger.exception(f"加载模型失败: {e}")
+            self._terminate_model_process()
+            raise e
                 
-                if result_msg.msg_type == 'error':
-                    raise RuntimeError(f"模型加载失败: {result_msg.error}")
-                
-                self.current_task = task_type
-                self.model_params = kwargs
-                logger.info(f"模型 (任务: {self.current_task}) 加载成功")
-                return self._get_inference_func()
-                
-            except RuntimeError as e:
-                if "模型工作进程已意外退出" in str(e) and retry < max_retries - 1:
-                    logger.warning(f"模型工作进程意外退出，正在重启并尝试重新加载模型 (尝试 {retry + 1}/{max_retries})")
-                    self._terminate_model_process()
-                    # 清理状态
-                    self.current_task = None
-                    self.model_params = {}
-                    # 继续循环，尝试重新加载
-                    continue
-                else:
-                    logger.exception(f"加载模型失败: {e}")
-                    self._terminate_model_process()
-                    raise  # 重新抛出异常，确保调用者知道模型加载失败
     
     def _get_inference_func(self):
         """获取模型推理函数"""

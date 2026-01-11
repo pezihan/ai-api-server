@@ -67,6 +67,10 @@ def set_config(args):
             with open(os.path.join(config["model_path"], "original", "config.json"), "r") as f:
                 model_config = json.load(f)
             config.update(model_config)
+        elif os.path.exists(os.path.join(config["model_path"], "transformer", "config.json")):
+            with open(os.path.join(config["model_path"], "transformer", "config.json"), "r") as f:
+                model_config = json.load(f)
+            config.update(model_config)
         # load quantized config
         if config.get("dit_quantized_ckpt", None) is not None:
             config_path = os.path.join(config["dit_quantized_ckpt"], "config.json")
@@ -82,8 +86,18 @@ def set_config(args):
 
     if config["task"] not in ["t2i", "i2i"] and config["model_cls"] not in ["hunyuan_video_1.5", "hunyuan_video_1.5_distill"]:
         config["attnmap_frame_num"] = ((config["target_video_length"] - 1) // config["vae_stride"][0] + 1) // config["patch_size"][0]
-        if config["model_cls"] == "seko_talk":
+        if config["model_cls"] in ["seko_talk", "wan2.2_animate"]:
             config["attnmap_frame_num"] += 1
+            config["padding_multiple"] = config["attnmap_frame_num"]
+
+    # Load diffusers vae config
+    if os.path.exists(os.path.join(config["model_path"], "vae", "config.json")):
+        with open(os.path.join(config["model_path"], "vae", "config.json"), "r") as f:
+            vae_config = json.load(f)
+            if "temperal_downsample" in vae_config:
+                config["vae_scale_factor"] = 2 ** len(vae_config["temperal_downsample"])
+            elif "block_out_channels" in vae_config:
+                config["vae_scale_factor"] = 2 ** (len(vae_config["block_out_channels"]) - 1)
 
     return config
 

@@ -314,19 +314,10 @@ class MetricsClient:
                 logger.warning(f"Unsupported metric type: {config.type_} for {metric_name}")
 
     def register_counter(self, name, desc, labels):
-        from prometheus_client.registry import REGISTRY
-        from prometheus_client import Counter
-        # Check if metric already exists in registry
-        if name not in REGISTRY._names_to_collectors:
-            metric_instance = Counter(name, desc, labels)
-            setattr(self, name, metric_instance)
-        else:
-            # If metric exists, get it from registry instead of creating new one
-            setattr(self, name, REGISTRY._names_to_collectors[name])
+        metric_instance = Counter(name, desc, labels)
+        setattr(self, name, metric_instance)
 
     def register_histogram(self, name, desc, labels, buckets=None):
-        from prometheus_client.registry import REGISTRY
-        from prometheus_client import Histogram
         buckets = buckets or (
             0.1,
             0.5,
@@ -340,24 +331,12 @@ class MetricsClient:
             300.0,
             600.0,
         )
-        # Check if metric already exists in registry
-        if name not in REGISTRY._names_to_collectors:
-            metric_instance = Histogram(name, desc, labels, buckets=buckets)
-            setattr(self, name, metric_instance)
-        else:
-            # If metric exists, get it from registry instead of creating new one
-            setattr(self, name, REGISTRY._names_to_collectors[name])
+        metric_instance = Histogram(name, desc, labels, buckets=buckets)
+        setattr(self, name, metric_instance)
 
     def register_gauge(self, name, desc, labels):
-        from prometheus_client.registry import REGISTRY
-        from prometheus_client import Gauge
-        # Check if metric already exists in registry
-        if name not in REGISTRY._names_to_collectors:
-            metric_instance = Gauge(name, desc, labels)
-            setattr(self, name, metric_instance)
-        else:
-            # If metric exists, get it from registry instead of creating new one
-            setattr(self, name, REGISTRY._names_to_collectors[name])
+        metric_instance = Gauge(name, desc, labels)
+        setattr(self, name, metric_instance)
 
 
 class MetricsServer:

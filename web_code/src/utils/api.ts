@@ -203,3 +203,37 @@ export const setApiBaseUrl = (baseUrl: string): void => {
 export const getApiBaseUrl = (): string => {
   return API_CONFIG.BASE_URL;
 };
+
+/**
+ * LoRA配置类型
+ */
+export interface LoraConfig {
+  name: string;
+  path: string;
+}
+
+/**
+ * LoRA参数类型（用于请求）
+ */
+export interface LoraParam {
+  name: string;
+  strength: number;
+}
+
+/**
+ * LoRA配置响应类型
+ */
+export interface LoraConfigResponse {
+  wan_2_1_t2v: LoraConfig[]; // 文生视频
+  wan_2_2_i2v: LoraConfig[]; // 图生视频
+  qwen_image_edit: LoraConfig[]; // 图生图
+  z_image: LoraConfig[]; // 文生图
+}
+
+/**
+ * 获取LoRA配置
+ * @returns Promise<ApiResponse<LoraConfigResponse>>
+ */
+export const getLoraConfig = async (): Promise<ApiResponse<LoraConfigResponse>> => {
+  return get<LoraConfigResponse>('/lora/config');
+};
