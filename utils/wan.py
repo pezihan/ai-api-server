@@ -69,7 +69,7 @@ class WanModelPipeRunner:
       args_dict['video_frame_interpolation'] = {
         "algo": "rife",
         "target_fps": 32,
-        "model_path": os.path.join(config.MODEL_DIR, "rife_model")
+        "model_path": os.path.join(config.MODEL_DIR, "rife_model/flownet.pkl")
       }
       logger.info(f"添加视频插帧配置: {args_dict['video_frame_interpolation']}")
     
