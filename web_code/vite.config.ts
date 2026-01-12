@@ -21,7 +21,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://59a7efd42ee84d2db8811534a003270b--5001.ap-shanghai2.cloudstudio.club',
+        target: 'http://localhost:5001',
         changeOrigin: true,
         rewrite: (path) => path  // 保持 api 前缀
       }

@@ -7,8 +7,8 @@
 
 <style>
 :root {
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
+  --primary-color: #509ef3;
+  --primary-hover: #2960df;
   --secondary-color: #6b7280;
   --secondary-hover: #4b5563;
   --success-color: #10b981;

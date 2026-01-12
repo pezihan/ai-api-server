@@ -60,10 +60,10 @@ const handleLogin = async () => {
 
 <template>
   <div class="login-container">
+    <img src="@/assets/image/login-bak.png" alt="logo" class="login-bak">
     <div class="login-card">
       <div class="login-header">
-        <h1 class="app-title">AI 生成平台</h1>
-        <p class="login-subtitle">请登录您的账号</p>
+        <p class="login-subtitle">请登录</p>
       </div>
       
       <form @submit.prevent="handleLogin" class="login-form">
@@ -98,7 +98,7 @@ const handleLogin = async () => {
       </form>
       
       <div class="login-footer">
-        <p>© 2026 AI 生成平台</p>
+        
       </div>
     </div>
   </div>
@@ -112,14 +112,27 @@ const handleLogin = async () => {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   padding: 20px;
+  position: relative;
+}
+.login-bak {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  object-fit: cover;
 }
 
 .login-card {
-  background: white;
+  position: relative;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(18px);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   width: 100%;
-  max-width: 400px;
+  max-width: 500px;
   padding: 40px 30px;
   animation: slideUp 0.5s ease-out;
 }
@@ -143,7 +156,7 @@ const handleLogin = async () => {
 .app-title {
   font-size: 28px;
   font-weight: bold;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #509ef3 0%, #2960df 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -151,8 +164,8 @@ const handleLogin = async () => {
 }
 
 .login-subtitle {
-  color: #6b7280;
-  font-size: 16px;
+  color: #565656;
+  font-size: 18px;
   margin: 0;
 }
 
@@ -194,7 +207,7 @@ const handleLogin = async () => {
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #000;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -204,7 +217,7 @@ const handleLogin = async () => {
 }
 
 .login-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #000;
   color: white;
   border: none;
   border-radius: 10px;
