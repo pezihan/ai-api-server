@@ -37,9 +37,15 @@ const showErrorDetails = ref(false);
 let pollingTimer: number | null = null;
 // 视频元素引用
 const videoRefs = ref<Record<string, HTMLVideoElement | null>>({});
-// 预览模态框状态
+// 预览模态框相关
 const showPreviewModal = ref(false);
 const previewTask = ref<Task | null>(null);
+const imageZoom = ref(1); // 图片缩放级别
+const isDragging = ref(false); // 是否正在拖动
+const dragStartX = ref(0); // 拖动起始X位置
+const dragStartY = ref(0); // 拖动起始Y位置
+const dragOffsetX = ref(0); // 拖动X偏移量
+const dragOffsetY = ref(0); // 拖动Y偏移量
 
 // 悬浮框状态
 const showTooltip = ref(false);
@@ -160,6 +166,61 @@ const openPreviewModal = (task: Task) => {
 const closePreviewModal = () => {
   showPreviewModal.value = false;
   previewTask.value = null;
+  imageZoom.value = 1; // 重置缩放级别
+  dragOffsetX.value = 0; // 重置拖动偏移
+  dragOffsetY.value = 0;
+};
+
+// 图片缩放功能
+const zoomIn = () => {
+  if (imageZoom.value < 3) {
+    imageZoom.value += 0.1;
+  }
+};
+
+const zoomOut = () => {
+  if (imageZoom.value > 0.5) {
+    imageZoom.value -= 0.1;
+  }
+};
+
+const resetZoom = () => {
+  imageZoom.value = 1;
+  dragOffsetX.value = 0; // 重置拖动偏移
+  dragOffsetY.value = 0;
+};
+
+// 图片拖动功能
+const startDrag = (event: MouseEvent) => {
+  if (imageZoom.value > 1) { // 只有在缩放后才能拖动
+    event.preventDefault();
+    isDragging.value = true;
+    dragStartX.value = event.clientX - dragOffsetX.value;
+    dragStartY.value = event.clientY - dragOffsetY.value;
+    
+    // 添加全局鼠标事件监听器，确保拖动在整个文档上都能工作
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('mouseleave', endDrag);
+  }
+};
+
+const drag = (event: MouseEvent) => {
+  if (isDragging.value) {
+    event.preventDefault();
+    dragOffsetX.value = event.clientX - dragStartX.value;
+    dragOffsetY.value = event.clientY - dragStartY.value;
+  }
+};
+
+const endDrag = () => {
+  if (isDragging.value) {
+    isDragging.value = false;
+    // 移除全局鼠标事件监听器
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', endDrag);
+    document.removeEventListener('mouseleave', endDrag);
+  }
 };
 
 // 显示悬浮框
@@ -593,7 +654,40 @@ onUnmounted(() => {
         <div class="preview-content">
           <!-- 图片预览 -->
           <div v-if="!previewTask.is_video && previewTask.result?.image_path" class="preview-image">
-            <img :src="getFullPath(previewTask.result.image_path)" :alt="previewTask.params.prompt" />
+            <img 
+              :src="getFullPath(previewTask.result.image_path)" 
+              :alt="previewTask.params.prompt" 
+              :style="{ 
+                transform: `translate(${dragOffsetX}px, ${dragOffsetY}px) scale(${imageZoom})`, 
+                transition: isDragging ? 'none' : 'transform 0.2s ease' 
+              }"
+              @mousedown="startDrag"
+            />
+            <!-- 缩放控制 -->
+            <div class="zoom-controls">
+              <button class="zoom-btn" @click="zoomOut" title="缩小">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+              </button>
+              <span class="zoom-level">{{ Math.round(imageZoom * 100) }}%</span>
+              <button class="zoom-btn" @click="zoomIn" title="放大">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+              </button>
+              <button class="zoom-btn" @click="resetZoom" title="重置">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                  <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 16"></path>
+                  <path d="M16 16h5v5"></path>
+                </svg>
+              </button>
+            </div>
           </div>
           <!-- 视频预览 -->
           <div v-else-if="previewTask.is_video && previewTask.result?.video_path" class="preview-video">
@@ -601,7 +695,9 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="preview-info">
-          <div class="preview-prompt">{{ previewTask.params.prompt }}</div>
+          <div class="preview-prompt" :title="previewTask.params.prompt">
+            <div class="prompt-content">{{ previewTask.params.prompt }}</div>
+          </div>
           <div class="preview-meta">
             <span>{{ getTaskTypeText(previewTask.task_type) }}</span>
             <span>{{ formatTime(previewTask.created_at) }}</span>
@@ -772,6 +868,20 @@ onUnmounted(() => {
   padding-bottom: 16px;
 }
 
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .tasks {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+  
+  .task-list-content {
+    padding: 0 16px 0px 16px;
+  }
+}
+
 .task-item {
   padding: 24px;
   background-color: #f9f9f9;
@@ -864,40 +974,42 @@ onUnmounted(() => {
 }
 
 /* 状态样式 */
+.task-status {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
 .status-pending {
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  color: #6c757d;
+  border: 1px solid #dee2e6;
 }
 
 .status-processing {
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  color: #1976d2;
+  border: 1px solid #1976d2;
 }
 
 .status-completed {
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  color: #2e7d32;
+  border: 1px solid #2e7d32;
 }
 
 .status-failed {
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  color: #c62828;
+  border: 1px solid #c62828;
 }
 
 .status-cancelled {
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  color: #616161;
+  border: 1px solid #616161;
 }
 
 .status-retrying {
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  color: #ef6c00;
+  border: 1px solid #ef6c00;
 }
 
 .task-result {
@@ -1326,12 +1438,11 @@ onUnmounted(() => {
 .preview-modal {
   background-color: var(--bg-color);
   border-radius: var(--radius-xl);
-  width: 90%;
-  max-width: 900px;
+  width: 100%;
+  max-width: 1000px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border-color);
   transition: var(--transition);
   overflow: hidden;
@@ -1371,11 +1482,14 @@ onUnmounted(() => {
 }
 
 .preview-image {
+  position: relative;
   width: 100%;
   max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .preview-image img {
@@ -1383,7 +1497,47 @@ onUnmounted(() => {
   max-height: 60vh;
   object-fit: contain;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  cursor: zoom-in;
+}
+
+.preview-image img:active {
+  cursor: grabbing;
+}
+
+/* 缩放控制 */
+.zoom-controls {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: white;
+  z-index: 10;
+}
+
+.zoom-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.zoom-level {
+  font-size: 14px;
+  min-width: 50px;
+  text-align: center;
 }
 
 .preview-video {
@@ -1399,7 +1553,6 @@ onUnmounted(() => {
   max-height: 60vh;
   object-fit: contain;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
   background-color: black;
 }
 
@@ -1408,6 +1561,26 @@ onUnmounted(() => {
   border-top: 1px solid var(--border-color);
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   color: white;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.preview-info::-webkit-scrollbar {
+  width: 6px;
+}
+
+.preview-info::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.preview-info::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.preview-info::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .preview-prompt {
@@ -1415,6 +1588,11 @@ onUnmounted(() => {
   line-height: 1.6;
   margin-bottom: 16px;
   word-break: break-word;
+}
+
+.prompt-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .preview-meta {

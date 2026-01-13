@@ -104,7 +104,7 @@
           </div>
           
           <!-- 横竖方选择 -->
-          <div class="custom-select">
+          <div class="custom-select" v-if="generateType !== '图生视频'">
             <div class="select-header" @click="toggleDropdown('size', $event)">
               <span class="select-icon size-icon">
                 <svg v-if="generateSize === '横'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -143,7 +143,7 @@
           </div>
           
           <!-- 时长选择 -->
-          <div class="custom-select">
+          <div class="custom-select" v-if="generateType === '文生视频' || generateType === '图生视频'">
             <div class="select-header" @click="toggleDropdown('duration', $event)">
               <span class="select-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

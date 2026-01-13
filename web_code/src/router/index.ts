@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '../components/LoginPage.vue'
-import Home from '../components/Home.vue'
 import Generate from '../components/Generate.vue'
 
 const router = createRouter({
@@ -8,12 +7,6 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: Home,
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/v2',
       name: 'generate',
       component: Generate,
       meta: { requiresAuth: true }
