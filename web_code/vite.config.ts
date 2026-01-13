@@ -19,6 +19,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, '../dist_web')
   },
   server: {
+    host: true, // 开启局域网访问
     proxy: {
       '/api': {
         target: 'http://117.50.163.168:80',
