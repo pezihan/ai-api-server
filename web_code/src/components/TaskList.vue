@@ -294,6 +294,7 @@ const formatTime = (timestamp: number) => {
 // 计算渲染耗时（秒）
 const getRenderTime = (task: Task) => {
   if (!task.render_start_time || !task.render_end_time) return null;
+  if (task.render_start_time > task.render_end_time) return null;
   return (task.render_end_time - task.render_start_time).toFixed(2);
 };
 
