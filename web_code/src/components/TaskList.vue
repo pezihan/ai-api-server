@@ -554,7 +554,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 错误详情弹窗 -->
-    <div class="error-details-overlay" v-if="showErrorDetails && selectedTask">
+    <div class="error-details-overlay" v-if="showErrorDetails && selectedTask" @click.stop>
       <div class="error-details-modal">
         <div class="error-details-header">
           <h3>任务错误详情</h3>
@@ -582,7 +582,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 预览模态框 -->
-    <div class="preview-overlay" v-if="showPreviewModal && previewTask">
+    <div class="preview-overlay" v-if="showPreviewModal && previewTask" @click.stop>
       <div class="preview-modal">
         <button class="close-preview-btn" @click="closePreviewModal">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -670,6 +670,7 @@ onUnmounted(() => {
   background: #ffffff;
   border-bottom: 1px solid var(--border-color);
   border-radius: 16px 0 0 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .task-list-title {
@@ -701,8 +702,8 @@ onUnmounted(() => {
 
 .task-list-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 24px;
+  overflow: hidden;
+  padding: 0 24px 0px 24px;
   background: #ffffff;
   display: flex;
   flex-direction: column;
@@ -762,9 +763,13 @@ onUnmounted(() => {
 
 /* 任务列表 */
 .tasks {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+  overflow-y: auto;
+  flex: 1;
+  padding-top: 24px;
+  padding-bottom: 16px;
 }
 
 .task-item {
@@ -775,6 +780,8 @@ onUnmounted(() => {
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .task-item:hover {
@@ -1033,7 +1040,7 @@ onUnmounted(() => {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   box-orient: vertical;
-  cursor: help;
+  cursor: pointer;
   box-sizing: border-box;
   padding: 0;
   margin: 0;
@@ -1055,6 +1062,9 @@ onUnmounted(() => {
   pointer-events: none;
   transition: opacity 0.2s ease;
   border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255);
+  border-radius: 10px;
+  box-shadow: 1px 1px 15px 1px #999999;
 }
 
 .task-actions {
@@ -1108,14 +1118,15 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 0;
-  gap: 12px;
-  margin-top: 24px;
+  padding: 12px 0;
+  gap: 6px;
+  margin-top: 0;
   border-top: 1px solid #e5e5e5;
+  flex-shrink: 0;
 }
 
 .pagination-info {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -1128,12 +1139,12 @@ onUnmounted(() => {
 }
 
 .pagination-btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
@@ -1153,12 +1164,12 @@ onUnmounted(() => {
 }
 
 .page-size-select {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
