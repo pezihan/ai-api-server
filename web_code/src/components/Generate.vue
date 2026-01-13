@@ -1,10 +1,17 @@
 <template>
-  <div class="generate-container">
-    <!-- <h2 class="generate-title">开启你的 <span class="generate-title-highlight">图片生成</span><span class="generate-title-arrow">▼</span> 即刻造梦！</h2> -->
-  </div>
-  <div class="generate-content-list">
+  <div class="generate-wrapper">
+    <!-- 任务列表面板 -->
+    <transition name="slide">
+      <div v-if="showTaskList" class="task-list-panel">
+        <TaskList @close="showTaskList = false" />
+      </div>
+    </transition>
+    <div class="generate-container">
+      <h2 class="generate-title">开启你的 <span class="generate-title-highlight">{{ generateType }}</span></h2>
+    </div>
+    <div class="generate-content-list">
     <div class="generate-content-input">
-      <div v-if="['图生图', '图生视频'].includes(generateType)">
+      <div v-if="['图生图', '图生视频'].includes(generateType)" style="margin-right: 20px;">
         <div v-if="!selectedImage" class="file-select">
           <img @click="openFileSelector" src="../assets/image/tool_generate_add.png" alt="添加图片"/>
         </div>
@@ -15,11 +22,22 @@
       </div>
       <input type="file" ref="fileInput" style="display: none" accept="image/*" @change="handleFileSelect">
       <div class="input-wrapper">
-        <textarea ref="promptInput" placeholder="请描述你想生成的图片" rows="6"></textarea>
+        <textarea ref="promptInput" placeholder="发挥你的想象力，描述你想要的画面吧！比如：一只可爱的小猫在阳光下玩耍" rows="3"></textarea>
+        <div class="negative-prompt">
+          <textarea v-model="negativePrompt" placeholder="告诉我们你不喜欢什么，比如：模糊、变形、低质量" rows="3"></textarea>
+        </div>
       </div>
     </div>
     <div class="generate-menu">
       <div class="left-box">
+        <!-- 任务列表按钮 -->
+        <button class="task-list-btn" @click="toggleTaskList($event)" title="任务列表" style="pointer-events: auto;">
+          <svg viewBox="0 0 24 24" fill="none">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
         <!-- 渲染类型 -->
         <div class="custom-select">
           <div class="select-header" @click="toggleDropdown('type', $event)">
@@ -46,7 +64,7 @@
                 <polyline points="10 6 10 14"></polyline>
               </svg>
             </span>
-            {{ generateType }}
+            <span class="select-text">{{ generateType }}</span>
             <span class="select-arrow" :class="{ 'rotated': dropdownOpen.type }">▼</span>
           </div>
           <div class="select-dropdown" v-if="dropdownOpen.type">
@@ -99,7 +117,7 @@
                 <rect x="3" y="3" width="18" height="18" rx="0" ry="0"></rect>
               </svg>
             </span>
-            {{ generateSize }}
+            <span class="select-text">{{ generateSize }}</span>
             <span class="select-arrow" :class="{ 'rotated': dropdownOpen.size }">▼</span>
           </div>
           <div class="select-dropdown" v-if="dropdownOpen.size">
@@ -127,8 +145,13 @@
         <!-- 时长选择 -->
         <div class="custom-select">
           <div class="select-header" @click="toggleDropdown('duration', $event)">
-            <span class="select-icon"></span>
-            {{ generateDuration }}
+            <span class="select-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </span>
+            <span class="select-text">{{ generateDuration }}</span>
             <span class="select-arrow" :class="{ 'rotated': dropdownOpen.duration }">▼</span>
           </div>
           <div class="select-dropdown" v-if="dropdownOpen.duration">
@@ -145,10 +168,15 @@
         </div>
         
         <!-- lora选择 -->
-        <div class="custom-select">
+        <div class="custom-select lora-select">
           <div class="select-header" @click="toggleDropdown('lora', $event)">
-            <span class="select-icon">🎨</span>
-            {{ selectedLoras.length > 0 ? `已选择 ${selectedLoras.length} 个` : '选择 Lora' }}
+            <span class="select-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </span>
+            <span class="select-text">{{ selectedLoras.length > 0 ? `已选择 ${selectedLoras.length} 个` : '选择 Lora' }}</span>
             <span class="select-arrow" :class="{ 'rotated': dropdownOpen.lora }">▼</span>
           </div>
           <div class="select-dropdown" v-if="dropdownOpen.lora">
@@ -170,12 +198,18 @@
         <button class="generate-btn" @click="generateImage">生成</button>
       </div>
     </div>
+      </div>
   </div>
 </template>
 
 <script lang="ts">
+import TaskList from './TaskList.vue'
+
 export default {
   name: 'Generate',
+  components: {
+    TaskList
+  },
   mounted() {
     // 添加全局点击事件监听器，点击空白处关闭下拉菜单
     document.addEventListener('click', this.handleClickOutside)
@@ -193,6 +227,8 @@ export default {
       generateSize: '横',
       generateDuration: '5秒',
       selectedImage: null,
+        negativePrompt: '',
+        showTaskList: false,
       dropdownOpen: {
         type: false,
         lora: false,
@@ -208,7 +244,13 @@ export default {
       loras: [
         { label: 'lora1', value: 'lora1' },
         { label: 'lora2', value: 'lora2' },
-        { label: 'lora3', value: 'lora3' }
+        { label: 'lora3', value: 'lora3' },
+        { label: 'lora3', value: 'lora3' },
+        { label: 'lora3asdasdasdasasdasdasdasddasdasdasdasdasdasd', value: 'lora3asdasdasdasdasdasdasdasdasdasd' },
+        { label: 'lora3', value: 'lora3' },
+        { label: 'lora3', value: 'lora3' },
+        { label: 'lora3', value: 'lora3' },
+        { label: 'lora3', value: 'lora3' },
       ],
       sizes: [
         { label: '横', value: '横' },
@@ -236,11 +278,19 @@ export default {
     // 处理点击空白处的事件
     handleClickOutside(event) {
       const selectElements = event.target.closest('.custom-select')
+      const taskListPanel = event.target.closest('.task-list-panel')
+      const taskListBtn = event.target.closest('.task-list-btn')
+      
       if (!selectElements) {
         // 点击的不是选择器内部，关闭所有下拉菜单
         Object.keys(this.dropdownOpen).forEach(key => {
           this.dropdownOpen[key] = false
         })
+      }
+      
+      if (!taskListPanel && !taskListBtn && this.showTaskList) {
+        // 点击的不是任务列表内部或任务列表按钮，关闭任务列表
+        this.showTaskList = false
       }
     },
     toggleDropdown(type, event) {
@@ -277,6 +327,7 @@ export default {
       // 生成图片的逻辑
       console.log('生成图片', {
         prompt: this.$refs.promptInput?.value,
+        negativePrompt: this.negativePrompt,
         type: this.generateType,
         lora: this.selectedLoras,
         steps: this.inferenceSteps,
@@ -302,15 +353,57 @@ export default {
     deleteImage() {
       this.selectedImage = null
       this.$refs.fileInput.value = ''
-    }
+      },
+      toggleTaskList(event) {
+        event.stopPropagation()
+        this.showTaskList = !this.showTaskList
+      }
   }
 }
 </script>
 
 <style lang="scss" scoped>
+.generate-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 20px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.task-list-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 680px;
+  height: 100vh;
+  background: #fff;
+  border-radius: 16px 0 0 16px;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+  z-index: 200;
+  overflow: hidden;
+}
+
+/* 动画效果 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-enter-from {
+  transform: translateX(100%);
+}
+
+.slide-leave-to {
+  transform: translateX(100%);
+}
+
 .generate-container {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 50px;
   
   .generate-title {
     font-size: 24px;
@@ -330,7 +423,7 @@ export default {
 }
 
 .generate-content-list {
-  max-width: 60%;
+  width: 70%;
   margin: 0 auto;
   background: #ffffff;
   border-radius: 24px;
@@ -361,7 +454,6 @@ export default {
           margin-top: 4px;
           cursor: pointer;
           aspect-ratio: 1;
-          
           img {
             width: 100%;
           }
@@ -374,7 +466,6 @@ export default {
           margin-right: 12px;
           margin-top: 4px;
           aspect-ratio: 1;
-          
           img {
             width: 100%;
             height: 100%;
@@ -412,9 +503,28 @@ export default {
             padding: 12px 16px;
             font-size: 14px;
             outline: none;
-            resize: vertical;
+            resize: none;
             font-family: inherit;
             line-height: 1.4;
+            background-color: #f5f5f5;
+          }
+          
+          .negative-prompt {
+            margin-top: 12px;
+            
+            textarea {
+              width: 100%;
+              min-height: 80px;
+              border: none;
+              border-radius: 8px;
+              padding: 12px 16px;
+              font-size: 14px;
+              outline: none;
+              resize: none;
+              font-family: inherit;
+              line-height: 1.4;
+              background-color: #f5f5f5;
+            }
           }
         }
       }
@@ -423,16 +533,60 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     
     .left-box {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-start;
+      
+      .task-list-btn {
+        width: 36px;
+        height: 36px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        
+        &:hover {
+          border-color: #000;
+          background: #f5f5f5;
+        }
+        
+        svg {
+          width: 16px;
+          height: 16px;
+          stroke: currentColor;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+      }
       
       .custom-select {
         position: relative;
         margin-right: 8px;
         min-width: 120px;
+        
+        &.lora-select {
+          min-width: 220px;
+          
+          .select-header {
+            .select-text {
+              flex: 1;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+          }
+        }
         
         .select-header {
           display: flex;
@@ -446,7 +600,6 @@ export default {
           cursor: pointer;
           background: #fff;
           transition: all 0.3s;
-          white-space: nowrap;
           height: 36px;
           box-sizing: border-box;
           
@@ -462,10 +615,17 @@ export default {
             justify-content: center;
           }
           
+          .select-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          
           .select-arrow {
             font-size: 10px;
             transition: transform 0.3s;
-            margin-left: auto;
+            margin-left: 8px;
             
             &.rotated {
               transform: rotate(180deg);
@@ -478,12 +638,14 @@ export default {
           top: 100%;
           left: 0;
           min-width: 100%;
+          max-height: 160px;
           margin-top: 4px;
           border: 1px solid #ddd;
           border-radius: 8px;
           background: #fff;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           z-index: 100;
+          overflow-y: auto;
           
           .dropdown-item {
             display: flex;
@@ -535,6 +697,15 @@ export default {
           height: 36px;
           box-sizing: border-box;
           
+          /* 隐藏上下按钮 */
+          -moz-appearance: textfield;
+          
+          &::-webkit-inner-spin-button,
+          &::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+          
           &:hover {
             border-color: #000;
           }
@@ -550,6 +721,8 @@ export default {
       display: flex;
       align-items: center;
       gap: 16px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       
       .generate-count {
         display: flex;
@@ -588,7 +761,7 @@ export default {
       .generate-btn {
         padding: 8px 20px;
         border: none;
-        border-radius: 16px;
+        border-radius: 8px;
         background: #000;
         color: #fff;
         font-size: 14px;
@@ -606,8 +779,40 @@ export default {
 
 // 响应式设计
 @media (max-width: 768px) {
+  .generate-container {
+    margin-bottom: 30px;
+    
+    .generate-title {
+      font-size: 20px;
+    }
+  }
+  
   .generate-content-list {
+    width: 100%;
     padding: 16px;
+    box-shadow: none;
+    border-radius: 8px;
+    
+    &:hover {
+      box-shadow: none;
+    }
+    
+    .generate-content-input {
+      flex-direction: column;
+      
+      >div {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 12px;
+      }
+      
+      .file-select,
+      .selected-image {
+        margin-right: 0;
+        width: 100px;
+        margin: 0 auto 12px;
+      }
+    }
     
     .generate-menu {
       flex-direction: column;
@@ -616,6 +821,7 @@ export default {
       
       .left-box {
         flex-wrap: wrap;
+        width: 100%;
       }
       
       .right-box {
@@ -623,6 +829,11 @@ export default {
         justify-content: space-between;
       }
     }
+  }
+  
+  .task-list-panel {
+    width: 100%;
+    border-radius: 0;
   }
 }
 </style>

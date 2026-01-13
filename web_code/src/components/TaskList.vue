@@ -627,34 +627,34 @@ onUnmounted(() => {
 
 <style scoped>
 :root {
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
-  --secondary-color: #6b7280;
-  --secondary-hover: #4b5563;
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --warning-color: #f59e0b;
+  --primary-color: #000000;
+  --primary-hover: #333333;
+  --secondary-color: #666666;
+  --secondary-hover: #444444;
+  --success-color: #000000;
+  --error-color: #000000;
+  --warning-color: #000000;
   --bg-color: #ffffff;
-  --bg-light: #f8fafc;
-  --border-color: #e2e8f0;
-  --border-focus: #cbd5e1;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-helper: #94a3b8;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --radius-sm: 6px;
+  --bg-light: #f5f5f5;
+  --border-color: #dddddd;
+  --border-focus: #000000;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --text-helper: #999999;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --radius-sm: 8px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --radius-lg: 8px;
+  --radius-xl: 24px;
+  --transition: all 0.3s ease;
 }
 
 .task-list-container {
-  width: 800px;
+  width: 100%;
   height: 100vh;
-  background-color: var(--bg-color);
+  background-color: #ffffff;
   box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -666,42 +666,46 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  border-bottom: none;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 16px 0 0 0;
 }
 
 .task-list-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
+  flex: 1;
+  text-align: center;
 }
 
 .close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
+  width: 24px;
+  height: 24px;
+  background-color: #ffffff;
+  color: var(--text-primary);
   border: none;
-  border-radius: 50%;
+  border-radius: 4px;
   cursor: pointer;
   transition: var(--transition);
-  backdrop-filter: blur(10px);
 }
 
 .close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+  background: var(--bg-light);
 }
 
 .task-list-content {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 加载状态 */
@@ -710,7 +714,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 0;
+  padding: 24px;
+  flex: 1;
 }
 
 .loading-spinner {
@@ -734,46 +739,48 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  color: var(--text-helper);
+  padding: 24px;
+  color: #999999;
+  text-align: center;
+  flex: 1;
+  margin: 0;
 }
 
 .empty-state svg {
-  margin-bottom: 20px;
-  opacity: 0.4;
-  width: 80px;
-  height: 80px;
-  color: var(--secondary-color);
-  transition: var(--transition);
+  margin-bottom: 24px;
+  opacity: 0.3;
+  width: 100px;
+  height: 100px;
+  color: #000000;
+  transition: all 0.3s ease;
 }
 
 .empty-state:hover svg {
-  opacity: 0.6;
+  opacity: 0.5;
   transform: scale(1.05);
 }
 
 /* 任务列表 */
 .tasks {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-gap: 16px;
-  grid-auto-flow: dense;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .task-item {
-  padding: 20px;
-  background-color: var(--bg-color);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
+  padding: 24px;
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
 }
 
 .task-item:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-  border-color: var(--primary-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-color: #000000;
+  transform: translateY(-2px);
 }
 
 .task-header {
@@ -851,33 +858,39 @@ onUnmounted(() => {
 
 /* 状态样式 */
 .status-pending {
-  background-color: #e0f2fe;
-  color: #0369a1;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .status-processing {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .status-completed {
-  background-color: #f0fdf4;
-  color: #16a34a;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .status-failed {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .status-cancelled {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .status-retrying {
-  background-color: #fef3c7;
-  color: #d97706;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .task-result {
@@ -887,7 +900,7 @@ onUnmounted(() => {
   background-color: var(--bg-light);
   position: relative;
   width: 100%;
-  padding-top: 100%; /* 1:1 宽高比 */
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1030,8 +1043,8 @@ onUnmounted(() => {
 
 .tooltip {
   position: fixed;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -1041,6 +1054,7 @@ onUnmounted(() => {
   box-shadow: var(--shadow-md);
   pointer-events: none;
   transition: opacity 0.2s ease;
+  border: 1px solid var(--border-color);
 }
 
 .task-actions {
@@ -1055,13 +1069,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
+  background: #ffffff;
+  color: var(--text-primary);
 }
 
 .action-btn:disabled {
@@ -1071,43 +1087,19 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.error-btn {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--error-color);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
 .error-btn:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.2);
-  border-color: var(--error-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
-}
-
-.retry-btn {
-  background-color: rgba(99, 102, 241, 0.1);
-  color: var(--primary-color);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-color: var(--primary-color);
+  background: var(--bg-light);
 }
 
 .retry-btn:hover:not(:disabled) {
-  background-color: rgba(99, 102, 241, 0.2);
   border-color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-}
-
-.delete-btn {
-  background-color: rgba(107, 114, 128, 0.1);
-  color: var(--secondary-color);
-  border: 1px solid rgba(107, 114, 128, 0.2);
+  background: var(--bg-light);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background-color: rgba(107, 114, 128, 0.2);
-  border-color: var(--secondary-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.15);
+  border-color: var(--primary-color);
+  background: var(--bg-light);
 }
 
 /* 分页控件 */
@@ -1116,10 +1108,10 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px 0;
+  padding: 24px 0;
   gap: 12px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border-color);
+  margin-top: 24px;
+  border-top: 1px solid #e5e5e5;
 }
 
 .pagination-info {
@@ -1149,11 +1141,8 @@ onUnmounted(() => {
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background-color: var(--primary-color);
-  color: white;
   border-color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-light);
 }
 
 .pagination-btn:disabled {
@@ -1177,7 +1166,7 @@ onUnmounted(() => {
 
 .page-size-select:hover {
   border-color: var(--primary-color);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-light);
 }
 
 /* 错误详情弹窗 */
@@ -1212,17 +1201,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px;
+  padding: 20px;
   border-bottom: 1px solid var(--border-color);
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: #ffffff;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .error-details-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
 }
 
 .error-details-content {

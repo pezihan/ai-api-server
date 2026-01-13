@@ -53,33 +53,6 @@ body {
   overflow: hidden;
 }
 
-/* 任务列表按钮 */
-.task-list-btn {
-  position: fixed;
-  left: 20px;
-  top: 20px;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  color: white;
-  border: none;
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: var(--shadow-lg);
-  transition: var(--transition);
-  backdrop-filter: blur(10px);
-}
-
-.task-list-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.3);
-}
-
 /* 主内容区域 */
 .main-content {
   flex: 1;
