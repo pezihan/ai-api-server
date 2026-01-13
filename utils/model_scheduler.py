@@ -284,7 +284,7 @@ def _load_qwen_i2i_model_worker(params):
     import torch
 
     cpu_offload = _is_cpu_offload_enabled_image_worker()
-    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2509-4bit"))
+    model_path = params.get('model_path', os.path.join(config.MODEL_DIR, "Qwen-Image-Edit-2511-4bit"))
     # 设备配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch_dtype = torch.bfloat16

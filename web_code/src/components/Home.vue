@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import Navbar from './Navbar.vue';
 import GeneratePanel from './GeneratePanel.vue';
 import TaskList from './TaskList.vue';
 
