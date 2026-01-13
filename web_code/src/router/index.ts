@@ -1,14 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '../components/LoginPage.vue'
-import Home from '../components/Home.vue'
+import Generate from '../components/Generate.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: Home,
+      name: 'generate',
+      component: Generate,
       meta: { requiresAuth: true }
     },
     {

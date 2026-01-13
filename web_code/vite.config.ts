@@ -21,7 +21,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'http://117.50.163.168:80',
+        changeOrigin: true,
+        rewrite: (path) => path  // 保持 api 前缀
+      },
+      '/home': {
+        target: 'http://117.50.163.168:80',
         changeOrigin: true,
         rewrite: (path) => path  // 保持 api 前缀
       }

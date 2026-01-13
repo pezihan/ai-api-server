@@ -37,9 +37,15 @@ const showErrorDetails = ref(false);
 let pollingTimer: number | null = null;
 // 视频元素引用
 const videoRefs = ref<Record<string, HTMLVideoElement | null>>({});
-// 预览模态框状态
+// 预览模态框相关
 const showPreviewModal = ref(false);
 const previewTask = ref<Task | null>(null);
+const imageZoom = ref(1); // 图片缩放级别
+const isDragging = ref(false); // 是否正在拖动
+const dragStartX = ref(0); // 拖动起始X位置
+const dragStartY = ref(0); // 拖动起始Y位置
+const dragOffsetX = ref(0); // 拖动X偏移量
+const dragOffsetY = ref(0); // 拖动Y偏移量
 
 // 悬浮框状态
 const showTooltip = ref(false);
@@ -160,6 +166,61 @@ const openPreviewModal = (task: Task) => {
 const closePreviewModal = () => {
   showPreviewModal.value = false;
   previewTask.value = null;
+  imageZoom.value = 1; // 重置缩放级别
+  dragOffsetX.value = 0; // 重置拖动偏移
+  dragOffsetY.value = 0;
+};
+
+// 图片缩放功能
+const zoomIn = () => {
+  if (imageZoom.value < 3) {
+    imageZoom.value += 0.1;
+  }
+};
+
+const zoomOut = () => {
+  if (imageZoom.value > 0.5) {
+    imageZoom.value -= 0.1;
+  }
+};
+
+const resetZoom = () => {
+  imageZoom.value = 1;
+  dragOffsetX.value = 0; // 重置拖动偏移
+  dragOffsetY.value = 0;
+};
+
+// 图片拖动功能
+const startDrag = (event: MouseEvent) => {
+  if (imageZoom.value > 1) { // 只有在缩放后才能拖动
+    event.preventDefault();
+    isDragging.value = true;
+    dragStartX.value = event.clientX - dragOffsetX.value;
+    dragStartY.value = event.clientY - dragOffsetY.value;
+    
+    // 添加全局鼠标事件监听器，确保拖动在整个文档上都能工作
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('mouseleave', endDrag);
+  }
+};
+
+const drag = (event: MouseEvent) => {
+  if (isDragging.value) {
+    event.preventDefault();
+    dragOffsetX.value = event.clientX - dragStartX.value;
+    dragOffsetY.value = event.clientY - dragStartY.value;
+  }
+};
+
+const endDrag = () => {
+  if (isDragging.value) {
+    isDragging.value = false;
+    // 移除全局鼠标事件监听器
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', endDrag);
+    document.removeEventListener('mouseleave', endDrag);
+  }
 };
 
 // 显示悬浮框
@@ -554,7 +615,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 错误详情弹窗 -->
-    <div class="error-details-overlay" v-if="showErrorDetails && selectedTask">
+    <div class="error-details-overlay" v-if="showErrorDetails && selectedTask" @click.stop>
       <div class="error-details-modal">
         <div class="error-details-header">
           <h3>任务错误详情</h3>
@@ -582,7 +643,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 预览模态框 -->
-    <div class="preview-overlay" v-if="showPreviewModal && previewTask">
+    <div class="preview-overlay" v-if="showPreviewModal && previewTask" @click.stop>
       <div class="preview-modal">
         <button class="close-preview-btn" @click="closePreviewModal">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -593,7 +654,40 @@ onUnmounted(() => {
         <div class="preview-content">
           <!-- 图片预览 -->
           <div v-if="!previewTask.is_video && previewTask.result?.image_path" class="preview-image">
-            <img :src="getFullPath(previewTask.result.image_path)" :alt="previewTask.params.prompt" />
+            <img 
+              :src="getFullPath(previewTask.result.image_path)" 
+              :alt="previewTask.params.prompt" 
+              :style="{ 
+                transform: `translate(${dragOffsetX}px, ${dragOffsetY}px) scale(${imageZoom})`, 
+                transition: isDragging ? 'none' : 'transform 0.2s ease' 
+              }"
+              @mousedown="startDrag"
+            />
+            <!-- 缩放控制 -->
+            <div class="zoom-controls">
+              <button class="zoom-btn" @click="zoomOut" title="缩小">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+              </button>
+              <span class="zoom-level">{{ Math.round(imageZoom * 100) }}%</span>
+              <button class="zoom-btn" @click="zoomIn" title="放大">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+              </button>
+              <button class="zoom-btn" @click="resetZoom" title="重置">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                  <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 16"></path>
+                  <path d="M16 16h5v5"></path>
+                </svg>
+              </button>
+            </div>
           </div>
           <!-- 视频预览 -->
           <div v-else-if="previewTask.is_video && previewTask.result?.video_path" class="preview-video">
@@ -601,7 +695,9 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="preview-info">
-          <div class="preview-prompt">{{ previewTask.params.prompt }}</div>
+          <div class="preview-prompt" :title="previewTask.params.prompt">
+            <div class="prompt-content">{{ previewTask.params.prompt }}</div>
+          </div>
           <div class="preview-meta">
             <span>{{ getTaskTypeText(previewTask.task_type) }}</span>
             <span>{{ formatTime(previewTask.created_at) }}</span>
@@ -627,34 +723,34 @@ onUnmounted(() => {
 
 <style scoped>
 :root {
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
-  --secondary-color: #6b7280;
-  --secondary-hover: #4b5563;
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --warning-color: #f59e0b;
+  --primary-color: #000000;
+  --primary-hover: #333333;
+  --secondary-color: #666666;
+  --secondary-hover: #444444;
+  --success-color: #000000;
+  --error-color: #000000;
+  --warning-color: #000000;
   --bg-color: #ffffff;
-  --bg-light: #f8fafc;
-  --border-color: #e2e8f0;
-  --border-focus: #cbd5e1;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-helper: #94a3b8;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --radius-sm: 6px;
+  --bg-light: #f5f5f5;
+  --border-color: #dddddd;
+  --border-focus: #000000;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --text-helper: #999999;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --radius-sm: 8px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --radius-lg: 8px;
+  --radius-xl: 24px;
+  --transition: all 0.3s ease;
 }
 
 .task-list-container {
-  width: 800px;
+  width: 100%;
   height: 100vh;
-  background-color: var(--bg-color);
+  background-color: #ffffff;
   box-shadow: -2px 0 20px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
@@ -666,42 +762,47 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  border-bottom: none;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 16px 0 0 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .task-list-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
+  flex: 1;
+  text-align: center;
 }
 
 .close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
+  width: 24px;
+  height: 24px;
+  background-color: #ffffff;
+  color: var(--text-primary);
   border: none;
-  border-radius: 50%;
+  border-radius: 4px;
   cursor: pointer;
   transition: var(--transition);
-  backdrop-filter: blur(10px);
 }
 
 .close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+  background: var(--bg-light);
 }
 
 .task-list-content {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px;
+  overflow: hidden;
+  padding: 0 24px 0px 24px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 加载状态 */
@@ -710,7 +811,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 0;
+  padding: 24px;
+  flex: 1;
 }
 
 .loading-spinner {
@@ -734,46 +836,68 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  color: var(--text-helper);
+  padding: 24px;
+  color: #999999;
+  text-align: center;
+  flex: 1;
+  margin: 0;
 }
 
 .empty-state svg {
-  margin-bottom: 20px;
-  opacity: 0.4;
-  width: 80px;
-  height: 80px;
-  color: var(--secondary-color);
-  transition: var(--transition);
+  margin-bottom: 24px;
+  opacity: 0.3;
+  width: 100px;
+  height: 100px;
+  color: #000000;
+  transition: all 0.3s ease;
 }
 
 .empty-state:hover svg {
-  opacity: 0.6;
+  opacity: 0.5;
   transform: scale(1.05);
 }
 
 /* 任务列表 */
 .tasks {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-gap: 16px;
-  grid-auto-flow: dense;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  overflow-y: auto;
+  flex: 1;
+  padding-top: 24px;
+  padding-bottom: 16px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .tasks {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+  
+  .task-list-content {
+    padding: 0 16px 0px 16px;
+  }
 }
 
 .task-item {
-  padding: 20px;
-  background-color: var(--bg-color);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
+  padding: 24px;
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .task-item:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-  border-color: var(--primary-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-color: #000000;
+  transform: translateY(-2px);
 }
 
 .task-header {
@@ -850,34 +974,42 @@ onUnmounted(() => {
 }
 
 /* 状态样式 */
+.task-status {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
 .status-pending {
-  background-color: #e0f2fe;
-  color: #0369a1;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
 }
 
 .status-processing {
-  background-color: #dcfce7;
-  color: #15803d;
+  color: #1976d2;
+  border: 1px solid #1976d2;
 }
 
 .status-completed {
-  background-color: #f0fdf4;
-  color: #16a34a;
+  color: #2e7d32;
+  border: 1px solid #2e7d32;
 }
 
 .status-failed {
-  background-color: #fee2e2;
-  color: #dc2626;
+  color: #c62828;
+  border: 1px solid #c62828;
 }
 
 .status-cancelled {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  color: #616161;
+  border: 1px solid #616161;
 }
 
 .status-retrying {
-  background-color: #fef3c7;
-  color: #d97706;
+  color: #ef6c00;
+  border: 1px solid #ef6c00;
 }
 
 .task-result {
@@ -887,7 +1019,7 @@ onUnmounted(() => {
   background-color: var(--bg-light);
   position: relative;
   width: 100%;
-  padding-top: 100%; /* 1:1 宽高比 */
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1020,7 +1152,7 @@ onUnmounted(() => {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   box-orient: vertical;
-  cursor: help;
+  cursor: pointer;
   box-sizing: border-box;
   padding: 0;
   margin: 0;
@@ -1030,8 +1162,8 @@ onUnmounted(() => {
 
 .tooltip {
   position: fixed;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -1041,6 +1173,10 @@ onUnmounted(() => {
   box-shadow: var(--shadow-md);
   pointer-events: none;
   transition: opacity 0.2s ease;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255);
+  border-radius: 10px;
+  box-shadow: 1px 1px 15px 1px #999999;
 }
 
 .task-actions {
@@ -1055,13 +1191,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border: none;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
+  background: #ffffff;
+  color: var(--text-primary);
 }
 
 .action-btn:disabled {
@@ -1071,43 +1209,19 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.error-btn {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--error-color);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
 .error-btn:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.2);
-  border-color: var(--error-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
-}
-
-.retry-btn {
-  background-color: rgba(99, 102, 241, 0.1);
-  color: var(--primary-color);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-color: var(--primary-color);
+  background: var(--bg-light);
 }
 
 .retry-btn:hover:not(:disabled) {
-  background-color: rgba(99, 102, 241, 0.2);
   border-color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
-}
-
-.delete-btn {
-  background-color: rgba(107, 114, 128, 0.1);
-  color: var(--secondary-color);
-  border: 1px solid rgba(107, 114, 128, 0.2);
+  background: var(--bg-light);
 }
 
 .delete-btn:hover:not(:disabled) {
-  background-color: rgba(107, 114, 128, 0.2);
-  border-color: var(--secondary-color);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.15);
+  border-color: var(--primary-color);
+  background: var(--bg-light);
 }
 
 /* 分页控件 */
@@ -1116,14 +1230,15 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px 0;
-  gap: 12px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border-color);
+  padding: 12px 0;
+  gap: 6px;
+  margin-top: 0;
+  border-top: 1px solid #e5e5e5;
+  flex-shrink: 0;
 }
 
 .pagination-info {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -1136,12 +1251,12 @@ onUnmounted(() => {
 }
 
 .pagination-btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
@@ -1149,11 +1264,8 @@ onUnmounted(() => {
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background-color: var(--primary-color);
-  color: white;
   border-color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-light);
 }
 
 .pagination-btn:disabled {
@@ -1164,12 +1276,12 @@ onUnmounted(() => {
 }
 
 .page-size-select {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   transition: var(--transition);
   box-shadow: var(--shadow-sm);
@@ -1177,7 +1289,7 @@ onUnmounted(() => {
 
 .page-size-select:hover {
   border-color: var(--primary-color);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-light);
 }
 
 /* 错误详情弹窗 */
@@ -1212,17 +1324,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px;
+  padding: 20px;
   border-bottom: 1px solid var(--border-color);
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: #ffffff;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .error-details-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: white;
+  color: var(--text-primary);
 }
 
 .error-details-content {
@@ -1326,12 +1438,11 @@ onUnmounted(() => {
 .preview-modal {
   background-color: var(--bg-color);
   border-radius: var(--radius-xl);
-  width: 90%;
-  max-width: 900px;
+  width: 100%;
+  max-width: 1000px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border-color);
   transition: var(--transition);
   overflow: hidden;
@@ -1371,11 +1482,14 @@ onUnmounted(() => {
 }
 
 .preview-image {
+  position: relative;
   width: 100%;
   max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .preview-image img {
@@ -1383,7 +1497,47 @@ onUnmounted(() => {
   max-height: 60vh;
   object-fit: contain;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  cursor: zoom-in;
+}
+
+.preview-image img:active {
+  cursor: grabbing;
+}
+
+/* 缩放控制 */
+.zoom-controls {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: white;
+  z-index: 10;
+}
+
+.zoom-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.zoom-level {
+  font-size: 14px;
+  min-width: 50px;
+  text-align: center;
 }
 
 .preview-video {
@@ -1399,7 +1553,6 @@ onUnmounted(() => {
   max-height: 60vh;
   object-fit: contain;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
   background-color: black;
 }
 
@@ -1408,6 +1561,26 @@ onUnmounted(() => {
   border-top: 1px solid var(--border-color);
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
   color: white;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.preview-info::-webkit-scrollbar {
+  width: 6px;
+}
+
+.preview-info::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.preview-info::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.preview-info::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .preview-prompt {
@@ -1415,6 +1588,11 @@ onUnmounted(() => {
   line-height: 1.6;
   margin-bottom: 16px;
   word-break: break-word;
+}
+
+.prompt-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .preview-meta {
