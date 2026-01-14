@@ -41,8 +41,8 @@ const handleLogin = async () => {
     });
     
     if (response.success && response.data?.token) {
-      // 保存token到本地存储
-      localStorage.setItem('authToken', response.data.token);
+      // 保存token到会话存储
+      sessionStorage.setItem('authToken', response.data.token);
       // 跳转回之前的页面或首页
       const redirectPath = route.query.redirect as string || '/';
       router.push(redirectPath);

@@ -45,7 +45,7 @@ export const apiRequest = async <T = any>(
       }
     };
     
-    // 从sessionStorage获取认证token
+    // 从会话存储获取认证token
     const token = sessionStorage.getItem('authToken');
     if (token) {
       // 添加Authorization头
