@@ -1342,6 +1342,7 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+  background: #fff;
 }
 
 .error-task-info {
@@ -1400,12 +1401,13 @@ onUnmounted(() => {
   padding: 16px 24px;
   border-top: 1px solid var(--border-color);
   gap: 12px;
+  background: #fff;
 }
 
 .close-details-btn {
   padding: 10px 24px;
   background-color: var(--primary-color);
-  color: white;
+  color: #000000;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
