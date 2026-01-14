@@ -24,7 +24,7 @@ router.beforeEach((to, from, next) => {
   // 检查路由是否需要认证
   if (to.matched.some(record => record.meta.requiresAuth)) {
     // 检查是否有认证token
-    const token = localStorage.getItem('authToken')
+    const token = sessionStorage.getItem('authToken')
     
     if (!token) {
       // 没有token，重定向到登录页面

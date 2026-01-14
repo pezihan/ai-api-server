@@ -45,8 +45,8 @@ export const apiRequest = async <T = any>(
       }
     };
     
-    // 从localStorage获取认证token
-    const token = localStorage.getItem('authToken');
+    // 从sessionStorage获取认证token
+    const token = sessionStorage.getItem('authToken');
     if (token) {
       // 添加Authorization头
       (requestConfig.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
@@ -174,7 +174,7 @@ export const postForm = <T = any>(
   url: string,
   formData: FormData,
   config: Omit<RequestInit, 'method' | 'body' | 'headers'> = {}): Promise<ApiResponse<T>> => {
-  const token = localStorage.getItem('authToken');
+  const token = sessionStorage.getItem('authToken');
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
