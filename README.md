@@ -75,8 +75,10 @@ pip install --no-build-isolation .
 ### 6. 下载模型文件
 
 ```bash
-# 下载FP8大模型
+# 下载FP8大模型(默认)
 bash download_model_fp8.sh
+# 如果不使用fp8模型，执行下载普通模型命令，同时.env的WAN_TYPE配置设置成 WAN_TYPE=wan
+bash download_model.sh
 
 # 下载补帧模型
 bash rife_download.sh
@@ -216,12 +218,19 @@ Authorization: Bearer <token>
 
 ## 前端界面
 
-项目内置了Vue前端界面，提供可视化的操作体验。启动服务后，可通过以下地址访问：
+项目内置了Vue前端界面，提供可视化的操作体验。需要提前编译前端网页，启动服务后，可通过以下地址访问：
 
 ```
 http://localhost:5001
 ```
 `注意`：默认的登录密码是`123456`，可以在配置文件.env里面修改
+
+### 前端编译
+```bash
+cd web_code
+npm install
+npm run build
+```
 
 前端界面功能：
 - 用户登录
