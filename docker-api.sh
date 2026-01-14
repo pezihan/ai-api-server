@@ -47,7 +47,7 @@ echo "=== 启动新容器 ==="
 docker run --restart=always \
  --name ${image_tag} \
  -v /home/ubuntu/files:/files \
- -p 80:5001 \
+ -p 5001:5001 \
  -d ${image_tag}:latest
 
 echo "=== 部署完成 ==="

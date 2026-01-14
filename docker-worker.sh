@@ -40,6 +40,7 @@ docker run --restart=always \
  --gpus all \
  -v /home/ubuntu/tmp:/tmp \
  -v /home/ubuntu/models:/models \
+ -v /home/ubuntu/loras:/loras \
  -e HF_ENDPOINT=https://hf-mirror.com \
  -d ${image_tag}:latest
 

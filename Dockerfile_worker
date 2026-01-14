@@ -36,8 +36,16 @@ RUN pip install -v -e . -i https://mirrors.aliyun.com/pypi/simple/
 
 WORKDIR /workspace
 # 安装推理加速
-RUN pip install sgl-kernel --upgrade -i https://mirrors.aliyun.com/pypi/simple/
-RUN pip install -v flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install flash-attn --no-build-isolation -i https://mirrors.aliyun.com/pypi/simple/
+
+# 安装fp8类型加速支持
+RUN pip install -r requirements.fp8.txt -i https://mirrors.aliyun.com/pypi/simple/
+RUN git clone https://github.com/KONAKONA666/q8_kernels /workspace/q8_kernels \
+    && cd /workspace/q8_kernels \
+    && git submodule init \
+    && git submodule update \
+    && python setup.py install \
+    && pip install --no-build-isolation .
 
 # 复制其他项目文件（代码文件变化不影响依赖层缓存）
 COPY . .
@@ -46,13 +54,5 @@ COPY . .
 COPY .env.docker .env
 
 ENV LOG_LEVEL=INFO
-
-# ========== 核心：添加环境变量 ==========
-# CUDA内存分配优化
-ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-# 启用CUDA Graph模式提升推理性能
-ENV ENABLE_GRAPH_MODE=true
-# 使用BF16精度推理，减少显存占用
-ENV DTYPE=BF16
 
 CMD ["python", "start_worker.py"]
