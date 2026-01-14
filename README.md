@@ -77,7 +77,7 @@ pip install --no-build-isolation .
 ```bash
 # 下载FP8大模型(默认)
 bash download_model_fp8.sh
-# 如果不使用fp8模型，执行下载普通模型命令，同时.env的WAN_TYPE配置设置成 WAN_TYPE=wan
+# fp8模型目前兼容的现在有限，目前4090显卡测试没问题，其他显卡待测试，如果无法正常安装q8_kernels，可以换成普通模型，执行下面下载普通模型命令，同时.env的WAN_TYPE配置设置成 WAN_TYPE=wan
 bash download_model.sh
 
 # 下载补帧模型
