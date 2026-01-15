@@ -340,7 +340,7 @@ def _load_qwen_i2i_model_worker(params):
     else:
         pipe.to(device)
 
-    pipe.transformer.set_attention_backend("flash")
+    # pipe.transformer.set_attention_backend("flash")
     pipe.vae.enable_slicing()
     pipe.vae.enable_tiling()
     pipe.safety_checker = None
