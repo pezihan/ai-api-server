@@ -223,6 +223,12 @@
         </div>
       </div>
     </div>
+    <div class="call-word-box">
+      <ul>
+        <li>切换渲染模式会卸载并重新加载模型，导致生成时间延长，建议不要频繁切换模式</li>
+        <li>视频生成时尽量避免使用Lora，加载时间会显著增加。如必须使用，请保持Lora和渲染模式不变，避免模型重复加载影响速度</li>
+      </ul>
+    </div>
   </div>
   
   
@@ -764,7 +770,7 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 80vh;
+  margin-top: 70px;
   padding: 20px;
   box-sizing: border-box;
   position: relative;
@@ -819,7 +825,7 @@ export default {
 }
 
 .generate-content-list {
-  width: 70%;
+  width: 65%;
   margin: 0 auto;
   background: #ffffff;
   border-radius: 24px;
@@ -1324,6 +1330,20 @@ export default {
           }
         }
       }
+  }
+}
+
+.call-word-box {
+  width: 65%;
+  margin: 0 auto;
+  border-radius: 24px;
+  padding: 20px;
+  margin-top: 10px;
+  ul {
+    li {
+      font-size: 12px;
+      color: #a1a1a1;
+    }
   }
 }
 
