@@ -3,7 +3,7 @@ WAN_22_DISTILL_MODELS_DIR="/home/ubuntu/models/Wan2.2-Distill-Models"
 QWEN_IMAGE_EDIT_MODEL_DIR="/home/ubuntu/models/Qwen-Image-Edit-2511-4bit"
 Z_IMAGE_MODEL_DIR="/home/ubuntu/models/Z-Image-Turbo"
 
-PU_MPDEL="/models"
+PU_MPDEL="/model"
 
 
 mkdir -p $WAN_21_DISTILL_MODELS_DIR
