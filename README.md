@@ -245,7 +245,7 @@ lora文件可以上传到.env中配置的 `LORA_DIR` 目录下
 
 推荐在以下平台使用预配置的镜像直接部署，无需手动配置环境和下载模型：
 
-- **AutoDL**：提供预配置的镜像
+- **AutoDL**：https://www.autodl.art/app/market/127?v=237
 - **优云智算**：https://www.compshare.cn/images/UcHFPXcyOzKl?referral_code=GuXDHTANcHKEjlz2IlczOy
 
 ## 常见问题
